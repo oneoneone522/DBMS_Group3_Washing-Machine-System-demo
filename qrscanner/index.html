@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>jsQR Demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>jsQR Demo</h1>
+
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" hidden></canvas>
+
+  <div>
+    <button id="startBtn">Start Camera</button>
+    <button id="stopBtn" disabled>Stop Camera</button>
+    <button id="restartBtn" disabled>Restart Camera</button>
+  </div>
+
+  <div>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <div id="result">Scan a QR code...</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
