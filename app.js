@@ -5,7 +5,7 @@ const app = express();
 
 // first middleware
 app.use(express.static('.'))
-
+app.use(express.urlencoded({ extended: true }));
 // second middleware
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -34,9 +34,11 @@ app.post("/signup", async (req, res) => {
 
   await mysqlConnectionPool.query(
     "INSERT INTO User (Dorm, User_Name, Student_ID, Email, Password) VALUES (?, ?, ?, ?, ?)",
-    [dorm, user_name, email, password]
+    [dorm, user_name, student_id, email, password]
   );
+  res.redirect('/login');
   return res.status(201).json({ success: true });
+  
 });
 
 app.get('/login', (req, res) => {

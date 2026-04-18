@@ -10,7 +10,7 @@
     <div class="card" style="width: 18rem;">
       <div class="card-body">
         <h5 class="card-title">註冊</h5>
-        <form id="signup-form">
+        <form id="signup-form" action="/signup" method="POST">
             <div class="mb-3">
                 <label for="dorm" class="form-label">宿舍</label>
                 <select class="form-select" id="dorm" name="dorm">
@@ -57,5 +57,32 @@
 
         loadDorms();
     </script>
+    <!-- <script>
+        document.getElementById('signup-form').addEventListener('submit', async function(e) {
+            e.preventDefault();  // 防止頁面重新整理
+
+            const body = {
+            dorm:       document.getElementById('dorm').value,
+            user_name:  document.getElementById('user_name').value,
+            student_id: document.getElementById('student_id').value,
+            email:      document.getElementById('email').value,
+            password:   document.getElementById('password').value,
+            };
+
+            const response = await fetch('/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+            document.getElementById('signup-msg').textContent = '註冊成功！';
+            } else {
+            document.getElementById('signup-msg').textContent = '註冊失敗，請再試一次。';
+            }
+        });
+        </script> -->
   </body>
 </html>
