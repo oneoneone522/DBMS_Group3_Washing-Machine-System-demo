@@ -48,10 +48,16 @@ app.get('/api/usage_record', async (req, res) => {
   return res.status(200).json(rows);
 });
 
+//machines
+app.get('/machines', (req, res) => {
+  res.sendFile('machines.html', {root:'./views'});
+});
+
 //signup
 app.get('/signup',(req,res) => {
   res.sendFile('signup.html', {root:'./views'});
-})
+});
+
 app.get('/api/dorm', async (req, res) => {
   const [rows] = await mysqlConnectionPool.query('SELECT DORM_NAME FROM DORM');
   return res.status(200).json(rows);
