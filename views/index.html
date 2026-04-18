@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>使用狀態</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  </head>
+  <body>
+    <div class="card" id="usage-container" style="width: 18rem;">
+      <!-- <div class="card-body">
+        <h5 class="card-title">01號機</h5>
+        <h6 class="card-subtitle mb-2 text-body-secondary">莊一 1F - 101</h6>
+        <p class="card-text">剩餘時間</p>
+        <p class="card-text">30分鐘</p>
+      </div> -->
+    </div>
+    <button type="button" class="btn btn-primary">查看機台使用狀態</button>
+
+    <script>
+      async function checkLogin() {
+        const response = await fetch('/api/check-login');
+        const data = await response.json();
+        if (!data.logged_in) {
+          window.location.href = '/login';  // 如果沒登入就跳回登入頁
+        }
+        else {
+          loadUsage();  // 如果已登入就載入使用狀態
+        }
+      }
+      async function loadUsage() {
+        const response = await fetch('/api/usage_record'); 
+        const usages = await response.json(); //把回應轉成 JSON 陣列
+        const container = document.getElementById('usage-container'); //找到頁面上的空容器，準備把 card 放進去
+
+        usages.forEach(usage => { //forEach 會把陣列裡每一筆資料跑一遍，每跑一次就建立一個新的 card 並加入容器。
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.style.width = '18rem';
+          card.innerHTML = `
+            <h1>您的洗衣行程</h1>
+            <div class="card-body">
+              <h5 class="card-title">${usage.Machine_Number}號機</h5>
+              <h6 class="card-subtitle mb-2 text-body-secondary">${usage.Dorm} ${usage.Floor}F - ${usage.Laundry_Room}</h6>
+              <p class="card-text">機器狀態：${usage.Machine_Status}</p>
+              <p class="card-text">使用狀態：${usage.Usage_Status}</p>
+            </div>
+          `;
+            container.appendChild(card);
+        });
+      }
+
+      // checkLogin();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+  </body>
+</html>
