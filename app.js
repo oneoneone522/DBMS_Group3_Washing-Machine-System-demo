@@ -18,14 +18,23 @@ app.get('/', (req, res) => {
   res.sendFile('index.html', {root:'.'});  // 對應 views/index.ejs
 });
 
+app.get('/signup',(req,res) => {
+  res.sendFile('signup.html', {root:'.'});
+})
+app.get('/api/dorm', async (req, res) => {
+  const [rows] = await mysqlConnectionPool.query('SELECT DORM_NAME FROM DORM');
+  return res.status(200).json(rows);
+});
 app.post("/signup", async (req, res) => {
-  const name = req.body["name"];
+  const dorm = req.body["dorm"];
+  const user_name = req.body["user_name"];
+  const student_id = req.body["student_id"];
   const email = req.body["email"];
   const password = req.body["password"];
 
   await mysqlConnectionPool.query(
-    "INSERT INTO User (Name, Email, Password) VALUES (?, ?, ?)",
-    [name, email, password]
+    "INSERT INTO User (Dorm, User_Name, Student_ID, Email, Password) VALUES (?, ?, ?, ?, ?)",
+    [dorm, user_name, email, password]
   );
   return res.status(201).json({ success: true });
 });
@@ -36,7 +45,7 @@ app.get('/login', (req, res) => {
 
 app.post("/login", async (req, res) => {
   const email = req.body["email"];
-  const account = req.body["account"];
+  const password = req.body["password"];
 
   const result = await mysqlConnectionPool.query(
     "SELECT UserId FROM User WHERE Email = ? AND Password = ?",
@@ -54,3 +63,11 @@ app.listen(3000, () => {
   console.log("Server starts at port 3000");
 });
 
+// async function runTest() {
+//   const mysql = await mysqlConnectionPool.getConnection();
+//   const result = await mysql.query("SELECT 1+1");
+//   console.log(result);
+//   process.exit();
+// }
+
+// runTest();
