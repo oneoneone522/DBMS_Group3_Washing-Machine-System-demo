@@ -1,0 +1,35 @@
+<!-- machine.ejs -->
+<%- include('partials/header') %>
+    <h1>莊敬一舍洗衣機使用狀況一覽</h1>
+    <div class="card" id="machineStatus-container" style="width: 18rem;">
+      
+    </div>
+    <script>
+      async function loadMachineStatus() {
+        const response = await fetch('/api/machine/my-dorm');
+        const machineStatus = await response.json();
+        const floorCount = {};
+        machineStatus.forEach(machine => {
+          const floor = machine.Floor;
+          if (!floorCount[floor]) {
+            floorCount[floor] = 0;
+          }
+          if (machine.Machine_Status === 'available') {
+            floorCount[floor] ++;
+          }                   
+        }); 
+        const container = document.getElementById('machineStatus-container');
+        Object.keys(floorCount).forEach(floor => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+          <div class = 'card-body'>
+            <h5 class = 'card-title'>${floor} 樓</h5>  
+            <p class = 'card-text'>空機數：${floorCount[floor]}</p>
+          </div>
+          `;
+          container.appendChild(card);          
+        });
+      }
+    </script>
+<%- include('partials/footer') %>
