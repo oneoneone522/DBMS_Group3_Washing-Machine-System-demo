@@ -1,9 +1,8 @@
 <!-- machine.ejs -->
 <%- include('partials/header') %>
-    <h1>莊敬一舍洗衣機使用狀況一覽</h1>
-    <div class="card" id="machineStatus-container" style="width: 18rem;">
-      
-    </div>
+    <h1><%= Dorm %> 洗衣機使用狀況一覽</h1>
+    <div id="machineStatus-container" style="width: 18rem;"></div>
+    <script src="/js/checkLogin.js"></script>
     <script>
       async function loadMachineStatus() {
         const response = await fetch('/api/machine/my-dorm');
@@ -14,7 +13,7 @@
           if (!floorCount[floor]) {
             floorCount[floor] = 0;
           }
-          if (machine.Machine_Status === 'available') {
+          if (machine.Machine_Status === '空閒') {
             floorCount[floor] ++;
           }                   
         }); 
@@ -23,13 +22,18 @@
           const card = document.createElement('div');
           card.className = 'card';
           card.innerHTML = `
-          <div class = 'card-body'>
-            <h5 class = 'card-title'>${floor} 樓</h5>  
-            <p class = 'card-text'>空機數：${floorCount[floor]}</p>
-          </div>
+          <button type="button">
+            <a href="/machine_each_floor">
+              <div class = 'card-body'>
+                <h5 class = 'card-title'>${floor} 樓</h5>  
+                <p class = 'card-text'>空機數：${floorCount[floor]}</p>
+              </div>
+            </a>
+          </button>
           `;
           container.appendChild(card);          
         });
       }
+      checkLogin(loadMachineStatus);
     </script>
 <%- include('partials/footer') %>

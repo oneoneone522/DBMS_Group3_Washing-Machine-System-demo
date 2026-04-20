@@ -9,18 +9,18 @@
     </div>
     <a href="/machine"><button type="button" class="btn btn-primary">查看機台使用狀態</button></a>
     
-
+    <script src="/js/checkLogin.js"></script>
     <script>
-      async function checkLogin() {
-        const response = await fetch('/api/check-login');
-        const data = await response.json();
-        if (!data.logged_in) {
-          window.location.href = '/login';  // 如果沒登入就跳回登入頁
-        }
-        else {
-          loadUsage();  // 如果已登入就載入使用狀態
-        }
-      }
+      // async function checkLogin() {
+      //   const response = await fetch('/api/check-login');
+      //   const data = await response.json();
+      //   if (!data.logged_in) {
+      //     window.location.href = '/login';  // 如果沒登入就跳回登入頁
+      //   }
+      //   else {
+      //     loadUsage();  // 如果已登入就載入使用狀態
+      //   }
+      // }
       async function loadUsage() {
         const response = await fetch('/api/usage_record'); 
         const usages = await response.json(); //把回應轉成 JSON 陣列
@@ -42,6 +42,6 @@
         });
       }
 
-      // checkLogin();
+      checkLogin(loadUsage);
     </script>
 <%- include('partials/footer') %>
