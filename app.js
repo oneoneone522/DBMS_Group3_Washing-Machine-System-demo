@@ -70,16 +70,18 @@ app.get('/api/machine/my-dorm', async (req, res) => {
   const [userRows] = await mysqlConnectionPool.query(`SELECT Dorm FROM User WHERE User_ID = ?`, [req.session.user_id]);
   const userDorm = userRows[0].Dorm;
   const [rows] = await mysqlConnectionPool.query(`
+    // Window function to get the count of queue with status "waiting"
     SELECT 
       m.Machine_Number, 
       m.Machine_Status, 
       m.Laundry_Room,
       m.Floor, 
       m.Dorm,
-      ur.Usage_Status
+      ur.Usage_Status,
+      SUM(CASE WHEN qr.Queue_Status = 'waiting' THEN 1 ELSE 0 END) AS Waiting_Queue_Count
     FROM Machine m
-    LEFT JOIN usage_record ur
-    ON m.Machine_ID = ur.Machine_ID
+    LEFT JOIN usage_record ur ON m.Machine_ID = ur.Machine_ID
+    LEFT JOIN queue_record qr ON m.Machine_ID = qr.Machine_ID
     WHERE m.Dorm = ?;`,[userDorm]
   );
   return res.status(200).json(rows);

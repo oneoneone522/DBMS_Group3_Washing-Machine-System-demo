@@ -1,4 +1,38 @@
 <!-- machine_each_floor.ejs -->
 <%- include('partials/header') %>
-<h1>本樓層機台一覽</h1>
+<div id="floor-btn">
+
+</div>
+<!-- <button type="button" class="btn btn-primary">Primary</button> -->
+ <div id="floor-machine-status"></div>
+<script>
+    async function FloorMachineStatus(){
+        const response  = await fetch('api/machine/my-dorm');
+        const floorMachineStatus = await response.json();
+        const floorStatus = {};
+        floorMachineStatus.forEach(machineStatus => {
+            const floor = machineStatus.Floor;
+            if (!floorStatus[floor]) {
+                floorStatus[floor] = [];
+            }
+            else {
+                floorStatus[floor].push(machineStatus);
+            }
+        });
+
+        const container = document.getElementById('floor-machine-status');
+        Object.keys(floorStatus).forEach(floor => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML += `<p> ${Machine_Number} 號機</p>
+                            <p> ${Machine_Status} </p>
+                            <p>剩餘時間： ${Remaining_Time} </p>
+                            <p>排隊人數： ${Waiting_Queue_Count} </p>
+                            <button><a href="/go to 排隊頁面">我要排隊</a></button>
+                            <button><a href="/go to 取消排隊頁面"></a></button>`;
+            container.appendChild(card);
+        });
+
+    };
+</script>
 <%- include('partials/footer') %>
