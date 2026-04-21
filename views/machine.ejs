@@ -13,7 +13,7 @@
           if (!floorCount[floor]) {
             floorCount[floor] = 0;
           }
-          if (machine.Machine_Status === '空閒') {
+          if (machine.Usage_Status === 'available') {
             floorCount[floor] ++;
           }                   
         }); 
@@ -23,7 +23,7 @@
           card.className = 'card';
           card.innerHTML = `
           <button type="button">
-            <a href="/machine_each_floor">
+            <a href="/machine/floor/${floor}">
               <div class = 'card-body'>
                 <h5 class = 'card-title'>${floor} 樓</h5>  
                 <p class = 'card-text'>空機數：${floorCount[floor]}</p>

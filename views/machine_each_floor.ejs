@@ -4,35 +4,41 @@
 
 </div>
 <!-- <button type="button" class="btn btn-primary">Primary</button> -->
- <div id="floor-machine-status"></div>
+<div id="floor-machine-status"></div>
+<script src="/js/checkLogin.js"></script>
 <script>
     async function FloorMachineStatus(){
         const response  = await fetch('api/machine/my-dorm');
         const floorMachineStatus = await response.json();
         const floorStatus = {};
-        floorMachineStatus.forEach(machineStatus => {
-            const floor = machineStatus.Floor;
+        floorMachineStatus.forEach(mStatus => {
+            const floor = mStatus.Floor;
             if (!floorStatus[floor]) {
                 floorStatus[floor] = [];
             }
-            else {
-                floorStatus[floor].push(machineStatus);
-            }
+            floorStatus[floor].push(mStatus);
         });
 
         const container = document.getElementById('floor-machine-status');
         Object.keys(floorStatus).forEach(floor => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML += `<p> ${Machine_Number} 號機</p>
-                            <p> ${Machine_Status} </p>
-                            <p>剩餘時間： ${Remaining_Time} </p>
-                            <p>排隊人數： ${Waiting_Queue_Count} </p>
+            const title = document.createElement('h3');
+            title.textContent = `${floor} 樓`;
+            container.appendChild(title);
+            //每台機器一張卡片
+            floorStatus[floor].forEach(m => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `<p> ${m.Machine_Number} 號機</p>
+                            <p> ${m.Machine_Status} </p>
+                            <p>剩餘時間： ${m.Remaining_Time} </p>
+                            <p>排隊人數： ${m.Waiting_Queue_Count} </p>
                             <button><a href="/go to 排隊頁面">我要排隊</a></button>
-                            <button><a href="/go to 取消排隊頁面"></a></button>`;
-            container.appendChild(card);
+                            <button><a href="/go to 取消排隊頁面"></a></button>`
+                            ;
+                            container.appendChild(card);
+            });
         });
-
+        checkLogin(FloorMachineStatus);
     };
 </script>
 <%- include('partials/footer') %>

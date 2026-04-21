@@ -40,7 +40,7 @@ app.get('/api/check-login', (req, res) => {
 
 app.get('/api/usage_record', async (req, res) => {
   if (!req.session.user_id) {
-    res.redirect("/login");
+    return res.redirect("/login");
   }
 
   const [rows] = await mysqlConnectionPool.query(
@@ -56,7 +56,7 @@ app.get('/api/usage_record', async (req, res) => {
 //machine
 app.get('/machine', async (req, res) => {
   if (!req.session.user_id) {
-    res.redirect("/login");
+    return res.redirect("/login");
   }
   const [userRows] = await mysqlConnectionPool.query(`SELECT Dorm FROM User WHERE User_ID = ?`, [req.session.user_id]);
   const userDorm = userRows[0].Dorm;
@@ -65,12 +65,41 @@ app.get('/machine', async (req, res) => {
 
 app.get('/api/machine/my-dorm', async (req, res) => {
   if (!req.session.user_id) {
-    res.redirect("/login"); 
+    return res.redirect("/login"); 
   }
   const [userRows] = await mysqlConnectionPool.query(`SELECT Dorm FROM User WHERE User_ID = ?`, [req.session.user_id]);
+  if (!userRows || userRows.length === 0) {
+    return res.status(404).json({ message: "User not found" });
+  }
   const userDorm = userRows[0].Dorm;
   const [rows] = await mysqlConnectionPool.query(`
-    // Window function to get the count of queue with status "waiting"
+    SELECT 
+      m.Machine_Number, 
+      m.Floor, 
+      m.Dorm,
+      ur.Usage_Status
+    FROM Machine m
+    LEFT JOIN usage_record ur ON m.Machine_ID = ur.Machine_ID
+    WHERE m.Dorm = ?;`,[userDorm]
+  );
+  return res.status(200).json(rows);
+});
+
+//machine/floor
+app.get('/machine/floor/:floor', async (req, res) => {
+  if (!req.session.user_id) {
+    return res.redirect('/login');
+  }
+  const floor = req.params.floor;
+  res.render('machine_each_floor', { title: '樓層機台一覽', floor: floor });
+});
+
+app.get('/api/machine/floor/:floor', async (req, res) => {
+  if (!req.session.user_id) {
+    return res.redirect('/login');
+  }
+  const floor = req.params.floor;
+  const [rows] = await mysqlConnectionPool.query(`
     SELECT 
       m.Machine_Number, 
       m.Machine_Status, 
@@ -78,30 +107,21 @@ app.get('/api/machine/my-dorm', async (req, res) => {
       m.Floor, 
       m.Dorm,
       ur.Usage_Status,
-      SUM(CASE WHEN qr.Queue_Status = 'waiting' THEN 1 ELSE 0 END) AS Waiting_Queue_Count
+      SUM(CASE WHEN qr.Reservation_Status = 'waiting' THEN 1 ELSE 0 END) AS Waiting_Queue_Count
     FROM Machine m
     LEFT JOIN usage_record ur ON m.Machine_ID = ur.Machine_ID
     LEFT JOIN queue_record qr ON m.Machine_ID = qr.Machine_ID
-    WHERE m.Dorm = ?;`,[userDorm]
+    WHERE m.Floor = ?
+    GROUP BY m.Machine_ID, m.Machine_Number, m.Machine_Status, m.Laundry_Room, m.Floor, m.Dorm, ur.Usage_Status;`,[floor]
   );
   return res.status(200).json(rows);
-});
 
-//machine_each_floor
-app.get('/machine_each_floor', async (req, res) => {
-  if (!req.session.user_id) {
-    return res.redirect('/login');
-  }
-  res.render('machine_each_floor', { title: '樓層機台一覽' });
 });
 //use_confirm
 app.get('/use_confirm', (req, res) =>{
   res.render('use_confirm', {title: '確認使用機台'});
 });
 
-// app.get('/api/machine', async(req, res) => {
-  
-// });
 
 //signup
 app.get('/signup',(req,res) => {
