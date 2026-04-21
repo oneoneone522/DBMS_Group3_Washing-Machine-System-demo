@@ -91,14 +91,25 @@ app.get('/machine/floor/:floor', async (req, res) => {
     return res.redirect('/login');
   }
   const floor = req.params.floor;
-  res.render('machine_each_floor', { title: '樓層機台一覽', floor: floor });
+  const [userRows] = await mysqlConnectionPool.query(`SELECT Dorm FROM User WHERE User_ID = ?`, [req.session.user_id]);
+  if (!userRows || userRows.length === 0) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  const userDorm = userRows[0].Dorm;
+  res.render('machine_each_floor', { title: '樓層機台一覽', Dorm: userDorm, floor: floor });
 });
 
 app.get('/api/machine/floor/:floor', async (req, res) => {
   if (!req.session.user_id) {
     return res.redirect('/login');
   }
+  const [userRows] = await mysqlConnectionPool.query(`SELECT Dorm FROM User WHERE User_ID = ?`, [req.session.user_id]);
+  if (!userRows || userRows.length === 0) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  const userDorm = userRows[0].Dorm;
   const floor = req.params.floor;
+
   const [rows] = await mysqlConnectionPool.query(`
     SELECT 
       m.Machine_Number, 
@@ -111,8 +122,8 @@ app.get('/api/machine/floor/:floor', async (req, res) => {
     FROM Machine m
     LEFT JOIN usage_record ur ON m.Machine_ID = ur.Machine_ID
     LEFT JOIN queue_record qr ON m.Machine_ID = qr.Machine_ID
-    WHERE m.Floor = ?
-    GROUP BY m.Machine_ID, m.Machine_Number, m.Machine_Status, m.Laundry_Room, m.Floor, m.Dorm, ur.Usage_Status;`,[floor]
+    WHERE m.Floor = ? AND m.Dorm = ?
+    GROUP BY m.Machine_ID, m.Machine_Number, m.Machine_Status, m.Laundry_Room, m.Floor, m.Dorm, ur.Usage_Status;`,[floor, userDorm]
   );
   return res.status(200).json(rows);
 

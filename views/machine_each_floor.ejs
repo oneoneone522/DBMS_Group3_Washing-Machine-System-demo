@@ -1,5 +1,6 @@
 <!-- machine_each_floor.ejs -->
 <%- include('partials/header') %>
+<h1><%= Dorm %> <%= floor %> 樓洗衣機使用狀況</h1>
 <div id="floor-btn">
 
 </div>
@@ -7,8 +8,9 @@
 <div id="floor-machine-status"></div>
 <script src="/js/checkLogin.js"></script>
 <script>
+    const currentFloor = '<%= floor %>';
     async function FloorMachineStatus(){
-        const response  = await fetch('api/machine/my-dorm');
+        const response  = await fetch(`/api/machine/floor/${currentFloor}`);
         const floorMachineStatus = await response.json();
         const floorStatus = {};
         floorMachineStatus.forEach(mStatus => {
@@ -32,13 +34,34 @@
                             <p> ${m.Machine_Status} </p>
                             <p>剩餘時間： ${m.Remaining_Time} </p>
                             <p>排隊人數： ${m.Waiting_Queue_Count} </p>
-                            <button><a href="/go to 排隊頁面">我要排隊</a></button>
-                            <button><a href="/go to 取消排隊頁面"></a></button>`
+                            <button><a href="/go to 排隊頁面">我要排隊</a></button>`
                             ;
                             container.appendChild(card);
             });
         });
-        checkLogin(FloorMachineStatus);
     };
+
+    async function floorBtn(){
+        const response  = await fetch('/api/machine/my-dorm');
+        const floorMachineStatus = await response.json();
+        const floorStatus = {};
+        floorMachineStatus.forEach(mStatus => {
+            const floor = mStatus.Floor;
+            if (!floorStatus[floor]) {
+                floorStatus[floor] = [];
+            }
+            floorStatus[floor].push(mStatus);
+        });
+
+        const container = document.getElementById('floor-btn');
+        Object.keys(floorStatus).forEach(floor => {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-primary';
+            btn.innerHTML = `<a href="/machine/floor/${floor}">${floor} 樓</a>`;
+            container.appendChild(btn);
+        });
+    };
+    checkLogin();
+    FloorMachineStatus();
 </script>
 <%- include('partials/footer') %>
