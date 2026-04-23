@@ -29,17 +29,41 @@
             //每台機器一張卡片
             floorStatus[floor].forEach(m => {
                 const card = document.createElement('div');
+                let scanBtn = '';
+                if (m.Waiting_Queue_Count == 0) {
+                    scanBtn = `<button><a href="/go to 掃碼使用">掃碼使用</a></button>`;
+                }
+                else {
+                    scanBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})"><a href="/go to 排隊頁面">我要排隊</a></button>`;
+                }
                 card.className = 'card';
                 card.innerHTML = `<p> ${m.Machine_Number} 號機</p>
                             <p> ${m.Machine_Status} </p>
                             <p>剩餘時間： ${m.Remaining_Time} </p>
                             <p>排隊人數： ${m.Waiting_Queue_Count} </p>
-                            <button><a href="/go to 排隊頁面">我要排隊</a></button>`
-                            ;
+                            ${scanBtn}`;
                             container.appendChild(card);
             });
         });
     };
+
+    async function joinQueue(machine_id) {
+        const btn = document.getElementById(`queue-btn-${machine_id}`);
+        btn.disabled = true;
+        btn.textContent= "處理中...";
+
+        const respose = await fetch(`/api/queue/${machine_id}`, {
+            method: 'POST'
+        });
+        if (respose.ok) {
+            btn.textContent = "已登記排隊";
+        }
+        else {
+            alert('排隊失敗');
+            btn.disabled = false;
+            btn.textContent = "我要排隊";
+        }
+    }
 
     async function floorBtn(){
         const response  = await fetch('/api/machine/my-dorm');

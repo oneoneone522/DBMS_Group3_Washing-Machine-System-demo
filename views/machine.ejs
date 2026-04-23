@@ -13,7 +13,7 @@
           if (!floorCount[floor]) {
             floorCount[floor] = 0;
           }
-          if (machine.Usage_Status === 'available') {
+          if (machine.in_use === 'idle') {
             floorCount[floor] ++;
           }                   
         }); 

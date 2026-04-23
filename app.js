@@ -77,6 +77,7 @@ app.get('/api/machine/my-dorm', async (req, res) => {
       m.Machine_Number, 
       m.Floor, 
       m.Dorm,
+      m.in_use,
       ur.Usage_Status
     FROM Machine m
     LEFT JOIN usage_record ur ON m.Machine_ID = ur.Machine_ID
@@ -112,11 +113,13 @@ app.get('/api/machine/floor/:floor', async (req, res) => {
 
   const [rows] = await mysqlConnectionPool.query(`
     SELECT 
+      m.Machine_ID,
       m.Machine_Number, 
       m.Machine_Status, 
       m.Laundry_Room,
       m.Floor, 
       m.Dorm,
+      m.in_use,
       ur.Usage_Status,
       SUM(CASE WHEN qr.Reservation_Status = 'waiting' THEN 1 ELSE 0 END) AS Waiting_Queue_Count
     FROM Machine m
@@ -128,9 +131,28 @@ app.get('/api/machine/floor/:floor', async (req, res) => {
   return res.status(200).json(rows);
 
 });
-//use_confirm
-app.get('/use_confirm', (req, res) =>{
-  res.render('use_confirm', {title: '確認使用機台'});
+
+app.post('/api/queue/:machine_id',async (req, res) => {
+  await mysqlConnectionPool.query();
+  const machine_id = req.params.machine_id;
+  const userId = req.session.user_id;
+
+  const[existingQueue] = await mysqlConnectionPool.query(
+    `SELECT * FROM queue_record
+    WHERE User_ID = ? AND Machine_ID = ? AND Reservation_Status = 'waiting';`,[machine_id, userId]
+  );
+  if (existingQueue.length > 0) {
+    return res.status(400).json({ message: "你已經在排隊中" });
+  }
+
+  await mysqlConnectionPool.query(
+    `INSERT INTO queue_record (User_ID, Machine_ID, Reservation_Status) VALUES (?, ?, 'waiting');`,
+    [userId, machine_id]
+  );
+
+  return res.status(200).json({ message: "成功加入排隊" });
+
+
 });
 
 
