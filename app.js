@@ -133,21 +133,35 @@ app.get('/api/machine/floor/:floor', async (req, res) => {
 });
 
 app.post('/api/queue/:machine_id',async (req, res) => {
-  await mysqlConnectionPool.query();
   const machine_id = req.params.machine_id;
   const userId = req.session.user_id;
 
   const[existingQueue] = await mysqlConnectionPool.query(
     `SELECT * FROM queue_record
-    WHERE User_ID = ? AND Machine_ID = ? AND Reservation_Status = 'waiting';`,[machine_id, userId]
+    WHERE User_ID = ? AND Machine_ID = ? AND Reservation_Status = 'waiting';`,[userId, machine_id]
   );
   if (existingQueue.length > 0) {
     return res.status(400).json({ message: "你已經在排隊中" });
   }
 
   await mysqlConnectionPool.query(
-    `INSERT INTO queue_record (User_ID, Machine_ID, Reservation_Status) VALUES (?, ?, 'waiting');`,
-    [userId, machine_id]
+    `
+  INSERT INTO queue_record (User_ID, Machine_ID, Reservation_Number, Reservation_Status)
+  VALUES (
+    ?,
+    ?,
+    (SELECT next_num FROM
+      (SELECT CASE WHEN MAX(Reservation_Number) IS NULL
+                    THEN 1
+                    ELSE MAX(Reservation_Number) + 1
+              END AS next_num
+        FROM queue_record
+        WHERE Machine_ID = ? AND Reservation_Status = 'waiting'
+      ) AS temp
+    ),
+    'waiting'
+   );`,
+    [userId, machine_id, machine_id]
   );
 
   return res.status(200).json({ message: "成功加入排隊" });

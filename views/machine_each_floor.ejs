@@ -6,6 +6,7 @@
 </div>
 <!-- <button type="button" class="btn btn-primary">Primary</button> -->
 <div id="floor-machine-status"></div>
+<card id="back-to-index-card"></card>
 <script src="/js/checkLogin.js"></script>
 <script>
     const currentFloor = '<%= floor %>';
@@ -29,19 +30,19 @@
             //每台機器一張卡片
             floorStatus[floor].forEach(m => {
                 const card = document.createElement('div');
-                let scanBtn = '';
+                let machineBtn = '';
                 if (m.Waiting_Queue_Count == 0) {
-                    scanBtn = `<button><a href="/go to 掃碼使用">掃碼使用</a></button>`;
+                    machineBtn = `<button id="scan-btn-${m.Machine_ID}"><a href="/scan_qr">掃碼使用</a></button>`;
                 }
                 else {
-                    scanBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})"><a href="/go to 排隊頁面">我要排隊</a></button>`;
+                    machineBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})">我要排隊</button>`;
                 }
                 card.className = 'card';
                 card.innerHTML = `<p> ${m.Machine_Number} 號機</p>
                             <p> ${m.Machine_Status} </p>
                             <p>剩餘時間： ${m.Remaining_Time} </p>
                             <p>排隊人數： ${m.Waiting_Queue_Count} </p>
-                            ${scanBtn}`;
+                            ${machineBtn}`;
                             container.appendChild(card);
             });
         });
@@ -56,7 +57,13 @@
             method: 'POST'
         });
         if (respose.ok) {
+            alert('排隊成功');
             btn.textContent = "已登記排隊";
+            const card = document.getElementById('back-to-index-card');
+            const backBtn = document.createElement('button');
+            backBtn.textContent = "回到首頁";
+            backBtn.onclick = () =>window.location.href = '/';
+            card.appendChild(backBtn);
         }
         else {
             alert('排隊失敗');
@@ -64,7 +71,6 @@
             btn.textContent = "我要排隊";
         }
     }
-
     async function floorBtn(){
         const response  = await fetch('/api/machine/my-dorm');
         const floorMachineStatus = await response.json();
