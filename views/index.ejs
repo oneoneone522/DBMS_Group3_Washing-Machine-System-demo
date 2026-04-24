@@ -11,26 +11,23 @@
     
     <script src="/js/checkLogin.js"></script>
     <script>
-      // async function checkLogin() {
-      //   const response = await fetch('/api/check-login');
-      //   const data = await response.json();
-      //   if (!data.logged_in) {
-      //     window.location.href = '/login';  // 如果沒登入就跳回登入頁
-      //   }
-      //   else {
-      //     loadUsage();  // 如果已登入就載入使用狀態
-      //   }
-      // }
       async function loadUsage() {
-        const response = await fetch('/api/usage_record'); 
+        const response = await fetch('/api/use_machine/${machine_id}'); 
         const usages = await response.json(); //把回應轉成 JSON 陣列
         const container = document.getElementById('usage-container'); //找到頁面上的空容器，準備把 card 放進去
+        let statusText = '';
+        if (usages.machine_id === null) {
+          statusText = '目前無洗衣行程';
+        }
+        else {
+          statusText = '您的洗衣行程';
+        }
         usages.forEach(usage => { //forEach 會把陣列裡每一筆資料跑一遍，每跑一次就建立一個新的 card 並加入容器。
           const card = document.createElement('div');
           card.className = 'card';
           card.style.width = '18rem';
           card.innerHTML = `
-            <h1>您的洗衣行程</h1>
+            <h1>${statusText}</h1>
             <div class="card-body">
               <h5 class="card-title">${usage.Machine_Number}號機</h5>
               <h6 class="card-subtitle mb-2 text-body-secondary">${usage.Dorm} ${usage.Floor}F - ${usage.Laundry_Room}</h6>
@@ -41,7 +38,6 @@
             container.appendChild(card);
         });
       }
-
       checkLogin(loadUsage);
     </script>
 <%- include('partials/footer') %>

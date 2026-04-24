@@ -32,7 +32,8 @@
                 const card = document.createElement('div');
                 let machineBtn = '';
                 if (m.Waiting_Queue_Count == 0) {
-                    machineBtn = `<button id="scan-btn-${m.Machine_ID}"><a href="/scan_qr">掃碼使用</a></button>`;
+                    // machineBtn = `<button id="scan-btn-${m.Machine_ID}"><a href="/scan_qr">掃碼使用</a></button>`;
+                    machineBtn = `<button id="scan-btn-${m.Machine_ID}" onclick="location.href='/scan_qr?machine_id=${m.Machine_ID}'">掃碼使用</button>`
                 }
                 else {
                     machineBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})">我要排隊</button>`;
@@ -71,6 +72,15 @@
             btn.textContent = "我要排隊";
         }
     };
+    
+    async function scanQR(machine_id) {
+        const btn = document.getElementById(`scan-btn-${machine_id}`);
+        btn.disabled = true;
+        btn.textContent= "處理中...";
+        if (machine_id) {
+            window.location.href = `/scan_qr?machine_id=${machine_id}`;
+        }
+    }
     async function floorBtn(){
         const response  = await fetch('/api/machine/my-dorm');
         const floorMachineStatus = await response.json();

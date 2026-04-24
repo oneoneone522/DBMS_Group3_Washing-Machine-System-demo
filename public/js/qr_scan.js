@@ -9,13 +9,22 @@ const restartBtn = document.getElementById("restartBtn");
 const fileInput = document.getElementById("fileInput");
 const resultEl = document.getElementById("result");
 
+const expectedMachineId = '<%= expected_machine_id %>';
+
 let stream = null;
 let scanning = false;
 let rafId = null;
 
 async function startCamera() {
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    // JS：要求攝影機解析度
+    stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        }
+    });
     video.srcObject = stream;
     scanning = true;
     resultEl.textContent = "Scanning...";
@@ -66,6 +75,11 @@ function scanLoop() {
       resultEl.classList.add("flash");
 
       stopCamera();
+      const scannedMachineId = new URL(code.data).pathname.split('/').pop(); // 從 URL 中提取機台 ID
+      if (scannedMachineId !== expectedMachineId) {
+        alert(`掃描錯誤！請掃描${expectedMachineId}號機器的QR碼。`);
+        return;
+      }
       window.location.href = code.data;
       setTimeout(() => resultEl.classList.remove("flash"), 1000);
       return;

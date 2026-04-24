@@ -27,8 +27,8 @@ app.set('views', './views');
 
 //index
 app.get('/', (req, res) => {
-  // res.render('index.html', {root:'./views'});
-  res.render('index',{ title: '使用狀態' });
+  const machine_id = req.query.machine_id || null;
+  res.render('index',{ title: '使用狀態' , machine_id: machine_id });
 });
 
 app.get('/api/check-login', (req, res) => {
@@ -172,7 +172,13 @@ app.get('/scan_qr', (req, res) => {
   if (!req.session.user_id) {
     return res.redirect('/login');
   }
-  res.render('qr_scan', { title: '掃碼使用' });
+  if (!req.query.machine_id) {
+    return res.status(400).json({ message: "缺少 machine_id 參數" });
+  }
+  res.render('qr_scan', 
+    { title: '掃碼使用' ,
+      expected_machine_id: req.query.machine_id
+    });
 });
 
 //Use Mahcine
@@ -181,7 +187,6 @@ app.post('/api/use_machine/:machine_id', async (req, res) => {
   const user_id = req.session.user_id;
 
   if (!user_id) return res.status(401).json({ message: '請先登入' });
-  
   try {
     await mysqlConnectionPool.query(
       `INSERT INTO usage_record (User_ID, Machine_ID, Queue_ID, Usage_Status) 
@@ -213,6 +218,7 @@ app.get('/use_machine/:machine_id', async (req, res) => {
   }
   const machine_id = req.params.machine_id;
   const user_id = req.session.user_id;
+  return res.redirect('/?machine_id=${machine_id}');
 });
 
 //signup
