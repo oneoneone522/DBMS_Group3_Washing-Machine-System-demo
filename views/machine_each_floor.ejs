@@ -70,7 +70,7 @@
             btn.disabled = false;
             btn.textContent = "我要排隊";
         }
-    }
+    };
     async function floorBtn(){
         const response  = await fetch('/api/machine/my-dorm');
         const floorMachineStatus = await response.json();

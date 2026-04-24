@@ -1,11 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>jsQR Demo</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
+<!-- qr_scan.ejs -->
+<%- include('partials/header') %>
   <h1>jsQR Demo</h1>
 
   <video id="video" autoplay playsinline></video>
@@ -24,6 +18,9 @@
   <div id="result">Scan a QR code...</div>
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
-  <script src="qr_scan.js"></script>
-</body>
-</html>
+  <script src="/js/qr_scan.js">
+    startCamera();
+  </script>
+  
+
+<%- include('partials/footer') %>

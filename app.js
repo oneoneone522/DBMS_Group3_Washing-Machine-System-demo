@@ -131,14 +131,14 @@ app.get('/api/machine/floor/:floor', async (req, res) => {
   return res.status(200).json(rows);
 
 });
-
+// queue function
 app.post('/api/queue/:machine_id',async (req, res) => {
   const machine_id = req.params.machine_id;
-  const userId = req.session.user_id;
+  const user_id = req.session.user_id;
 
   const[existingQueue] = await mysqlConnectionPool.query(
     `SELECT * FROM queue_record
-    WHERE User_ID = ? AND Machine_ID = ? AND Reservation_Status = 'waiting';`,[userId, machine_id]
+    WHERE User_ID = ? AND Machine_ID = ? AND Reservation_Status = 'waiting';`,[user_id, machine_id]
   );
   if (existingQueue.length > 0) {
     return res.status(400).json({ message: "你已經在排隊中" });
@@ -161,14 +161,59 @@ app.post('/api/queue/:machine_id',async (req, res) => {
     ),
     'waiting'
    );`,
-    [userId, machine_id, machine_id]
+    [user_id, machine_id, machine_id]
   );
 
   return res.status(200).json({ message: "成功加入排隊" });
-
-
 });
 
+//scan qr code
+app.get('/scan_qr', (req, res) => {
+  if (!req.session.user_id) {
+    return res.redirect('/login');
+  }
+  res.render('qr_scan', { title: '掃碼使用' });
+});
+
+//Use Mahcine
+app.post('/api/use_machine/:machine_id', async (req, res) => {
+  const machine_id = req.params.machine_id;
+  const user_id = req.session.user_id;
+
+  if (!user_id) return res.status(401).json({ message: '請先登入' });
+  
+  try {
+    await mysqlConnectionPool.query(
+      `INSERT INTO usage_record (User_ID, Machine_ID, Queue_ID, Usage_Status) 
+      VALUES (?, 
+              ?, 
+              (SELECT Queue_ID 
+              FROM queue_record
+              WHERE User_ID = ? 
+                    AND Machine_ID = ? 
+                    AND Reservation_Status = 'waiting' 
+                    ORDER BY Reservation_Number LIMIT 1),
+              'in_use')`,[user_id, machine_id, user_id, machine_id]
+    );
+
+    await mysqlConnectionPool.query(
+      `UPDATE Machine SET in_use = 'busy' WHERE Machine_ID = ?`, [machine_id]
+    );
+    return res.status(200).json({ message: '開始使用' });
+  }
+  catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/use_machine/:machine_id', async (req, res) => {
+  if (!req.session.user_id) {
+    return res.json({message: '請先登入'});
+  }
+  const machine_id = req.params.machine_id;
+  const user_id = req.session.user_id;
+});
 
 //signup
 app.get('/signup',(req,res) => {
