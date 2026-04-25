@@ -187,6 +187,20 @@ app.get('/api/my_queue', async (req, res) => {
   return res.status(200).json(rows[0] ?? null);
 });
 
+//cancel queue
+app.post ('/api/cancel_queue/:machine_id', async (req, res) => {
+  if (!req.session.user_id) {
+    return res.status(401).json({ message: "請先登入" });
+  }
+  const machine_id = req.params.machine_id;
+  const user_id = req.session.user_id;
+
+  await mysqlConnectionPool.query(
+    `DELETE FROM queue_record
+    WHERE User_ID = ? AND Machine_ID = ? AND Reservation_Status = 'waiting'`, [user_id, machine_id]
+  );
+});
+
 //scan qr code
 app.get('/scan_qr', (req, res) => {
   if (!req.session.user_id) {

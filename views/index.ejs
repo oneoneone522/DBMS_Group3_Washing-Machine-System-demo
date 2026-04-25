@@ -61,9 +61,16 @@
           <h5 class="card-title"> ${queue.Machine_Number} 號機</h5>
           <p class="card-text"> ${queue.Dorm} ${queue.Floor}F - ${queue.Laundry_Room}</p>
           <p class="card-text"> 排隊序號：${queue.Reservation_Number}</p>
+          <button class="btn btn-danger" id="cancelBtn" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>
         </div>
         `;
       };
+
+      async function cancelQueue(machine_id) {
+        await fetch(`/api/cancel_queue/${machine_id}`, {method: 'POST'});
+        alert('已取消排隊');
+        loadQueue();
+      }
       checkLogin(loadUsage);
       checkLogin(loadQueue);
     </script>
