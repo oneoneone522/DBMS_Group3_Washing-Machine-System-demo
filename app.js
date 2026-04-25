@@ -193,6 +193,20 @@ app.get('/maintenance', async (req,res) => {
   });
 });
 
+// get floor
+app.get('/api/floors/:dorm', async (req,res) => {
+
+    const dorm = req.params.dorm;
+
+    const [rows] = await mysqlConnectionPool.query(`
+        SELECT DISTINCT Floor
+        FROM machine
+        WHERE Dorm = ?
+        ORDER BY Floor
+    `,[dorm]);
+
+    res.json(rows);
+});
 
 app.listen(3000, () => {
   console.log("Server starts at port 3000");
