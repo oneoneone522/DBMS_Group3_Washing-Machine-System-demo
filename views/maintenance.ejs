@@ -1,0 +1,129 @@
+<%- include('partials/header') %>
+
+<div class="container mt-5 pt-4">
+    
+    <div class="card shadow-lg border-0 rounded-4">
+        <div class="card-body p-5">
+
+            <h2 class="mb-4 fw-bold text-primary">設備報修申請</h2>
+            <p class="text-muted mb-4">
+                請填寫故障資訊，系統將通知管理員進行處理。
+            </p>
+
+            <form action="/maintenance" method="POST">
+
+                <!-- 宿舍 -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">宿舍區域</label>
+                    <select id="dormSelect" class="form-select" name="dorm" required>
+                        <option value="">請選擇宿舍</option>
+                        <% dorms.forEach(dorm => { %>
+                        <option value="<%= dorm.Dorm %>">
+                            <%= dorm.Dorm %>
+                        </option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <!-- 樓層 -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">樓層</label>
+                    <select id="floorSelect" class="form-select" name="floor" required>
+                    <option value="">請先選宿舍</option>
+                    </select>
+                </div>
+
+                <!-- 機器編號 -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">機器編號</label>
+                    <select id="machineSelect" class="form-select" name="machine_id" required>
+                    <option value="">請先選樓層</option>
+                    </select>
+                </div>
+
+                <!-- 故障類型 -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">故障類型</label>
+                    <select class="form-select" name="issue_type" required>
+                        <option value="">請選擇故障類型</option>
+                        <option>漏水</option>
+                        <option>面板沒反應</option>
+                        <option>不加熱</option>
+                        <option>洗不乾淨</option>
+                        <option>其他</option>
+                    </select>
+                </div>
+
+                <!-- 詳細描述 -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">詳細描述</label>
+                    <textarea class="form-control" name="description" rows="4" maxlength="100"
+                        placeholder="請描述設備異常情況（100字內）"></textarea>
+                </div>
+
+                <!-- 上傳照片 -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">照片上傳（選填）</label>
+                    <input type="file" class="form-control" name="photo">
+                </div>
+
+                <!-- 按鈕 -->
+                <div class="d-flex gap-3">
+                    <button type="submit" class="btn btn-primary px-4">確認送出</button>
+                    <a href="/" class="btn btn-outline-secondary px-4">取消</a>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+
+const dormSelect = document.getElementById("dormSelect");
+const floorSelect = document.getElementById("floorSelect");
+const machineSelect = document.getElementById("machineSelect");
+
+dormSelect.addEventListener("change", async () => {
+
+    const dorm = dormSelect.value;
+
+    const res = await fetch(`/api/floors/${encodeURIComponent(dorm)}`);
+    const floors = await res.json();
+
+    floorSelect.innerHTML = `<option value="">請選樓層</option>`;
+
+    floors.forEach(item => {
+        floorSelect.innerHTML += `
+        <option value="${item.Floor}">
+            ${item.Floor}樓
+        </option>`;
+    });
+
+    machineSelect.innerHTML =
+    `<option value="">請先選樓層</option>`;
+});
+
+floorSelect.addEventListener("change", async () => {
+
+    const dorm = dormSelect.value;
+    const floor = floorSelect.value;
+
+    const res = await fetch(`/api/machines/${dorm}/${floor}`);
+    const machines = await res.json();
+
+    machineSelect.innerHTML =
+    `<option value="">請選機器</option>`;
+
+    machines.forEach(machine => {
+        machineSelect.innerHTML += `
+        <option value="${machine.Machine_ID}">
+            ${machine.Machine_Number}
+        </option>`;
+    });
+
+});
+
+</script>
