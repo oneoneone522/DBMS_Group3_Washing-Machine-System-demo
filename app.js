@@ -192,9 +192,36 @@ app.get('/logout', (req,res) =>{
 
 });
 
-//penalty
-app.get('/penalty', (req,res) =>{
-  res.render('penalty', { title: '違規紀錄' });
+//penalty page
+app.get('/penalty', async (req,res) => {
+    try{
+        if(!req.session.user_id){
+            return res.redirect('/login');
+        }
+        const user_id = req.session.user_id;
+        // 目前總扣點
+        const [pointRows] = await mysqlConnectionPool.query(`
+            SELECT IFNULL(SUM(Point),0) AS totalPoint
+            FROM Penalty
+            WHERE User_ID = ?
+        `,[user_id]);
+        const totalPoint = pointRows[0].totalPoint;
+        // 違規紀錄
+        const [records] = await mysqlConnectionPool.query(`
+            SELECT *
+            FROM Penalty
+            WHERE User_ID = ?
+            ORDER BY Created_At DESC
+        `,[user_id]);
+        res.render('penalty',{
+            title:'違規紀錄',
+            totalPoint,
+            records
+        });
+    }catch(error){
+        console.log(error);
+        res.send('載入違規紀錄失敗');
+    }
 });
 
 // maintenance page
