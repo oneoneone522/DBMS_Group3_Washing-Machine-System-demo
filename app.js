@@ -57,7 +57,7 @@ app.get('/api/current_usage', async (req, res) => {
      JOIN Machine m ON ur.Machine_ID = m.Machine_ID
      WHERE ur.User_ID = ? AND ur.Usage_Status = 'in_use'`,[req.session.user_id]
   );
-  return res.status(200).json(rows[0] ?? null); 
+  return res.status(200).json(rows[0] ?? null);
 });
 
 //machine
@@ -84,10 +84,8 @@ app.get('/api/machine/my-dorm', async (req, res) => {
       m.Machine_Number, 
       m.Floor, 
       m.Dorm,
-      m.in_use,
-      ur.Usage_Status
+      m.in_use
     FROM Machine m
-    LEFT JOIN usage_record ur ON m.Machine_ID = ur.Machine_ID
     WHERE m.Dorm = ?;`,[userDorm]
   );
   return res.status(200).json(rows);
@@ -174,6 +172,21 @@ app.post('/api/queue/:machine_id',async (req, res) => {
   return res.status(200).json({ message: "成功加入排隊" });
 });
 
+//my queue
+app.get('/api/my_queue', async (req, res) => {
+  if (!req.session.user_id) {
+    return res.status(401).json({ message: "請先登入" });
+  }
+  const user_id = req.session.user_id;
+  const [rows] = await mysqlConnectionPool.query(
+    `SELECT qr.Machine_ID, qr.Reservation_Number, m.Machine_Number, m.Floor, m.Dorm, m.Laundry_Room
+    FROM queue_record qr
+    LEFT JOIN Machine m ON qr.Machine_ID = m.Machine_ID
+    WHERE qr.User_ID = ? AND qr.Reservation_Status = 'waiting'`, [user_id]
+  );
+  return res.status(200).json(rows[0] ?? null);
+});
+
 //scan qr code
 app.get('/scan_qr', (req, res) => {
   if (!req.session.user_id) {
@@ -228,19 +241,24 @@ app.post('/api/finished/:usage_id', async (req, res) => {
     return res.redirect('/login');
   }
   const usage_id = req.params.usage_id;
+  
   try {
-      const [rows] = await mysqlConnectionPool.query(
-      `SELECT Machine_ID FROM usage_record WHERE Usage_ID = ?`, [usage_id]
-      );
-      const machine_id = rows[0].Machine_ID;
-      await mysqlConnectionPool.query(
-      `UPDATE MACHINE SET in_use = 'idle' WHERE Machine_ID = ?`, [machine_id]
-    );
-    await mysqlConnectionPool.query(
-      `UPDATE usage_record SET Usage_Status = 'finished' WHERE Machine_ID = ?`, [machine_id]
-    );
-    // req.session.just_finished_machine_id = machine_id;
-    return res.status(200).json({message: "洗衣完成！"});
+        const [rows] = await mysqlConnectionPool.query(
+        `SELECT Machine_ID FROM usage_record WHERE Usage_ID = ?`, [usage_id]
+        );
+        const machine_id = rows[0].Machine_ID;
+        await mysqlConnectionPool.query(
+        `UPDATE MACHINE SET in_use = 'idle' WHERE Machine_ID = ?`, [machine_id]
+        );
+        await mysqlConnectionPool.query(
+          `UPDATE usage_record SET Usage_Status = 'finished' WHERE Machine_ID = ?`, [machine_id]
+        );
+        await mysqlConnectionPool.query(
+          `UPDATE queue_record
+          SET Reservation_Number = Reservation_Number - 1
+          WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number > 0`, [machine_id]
+        );
+        return res.status(200).json({message: "洗衣完成！"});
   }
   catch (error) {
     console.error(error);

@@ -1,6 +1,8 @@
 <%- include('partials/header') %>
     <div class="card" id="usage-container" style="width: 18rem;">
     </div>
+    <div class="card" id="queue-container" style="width: 18rem;">
+    </div>
     <a href="/machine"><button type="button" class="btn btn-primary">查看機台使用狀態</button></a>
     
     <script src="/js/checkLogin.js"></script>
@@ -12,32 +14,30 @@
         if (just_reserved_machine_id) {
           alert(`開始洗衣行程`);
         }
-        // if (just_finished_machine_id) {
-        //   alert(`洗衣行程結束`);
-        // }
         const response = await fetch('/api/current_usage');
         const usage = await response.json();
-        const container = document.getElementById('usage-container');
+        const containerUsage = document.getElementById('usage-container');
+        const containerQueue = document.getElementById('queue-container');
 
         if(!usage || usage.machine_id === null) {
-          container.innerHTML = '<h5>目前無洗衣行程</h5>';
+          containerUsage.innerHTML = '<h5>目前無洗衣行程</h5>';
           return;
         }
-        startCountDown(new Date(usage.Estimated_End_Time), container, usage);
+        startCountDown(new Date(usage.Estimated_End_Time), containerUsage, usage);
       }
-      async function startCountDown(endsAt, container, usage) {
+      async function startCountDown(endsAt, containerUsage, usage) {
         const interval = setInterval(async() => {
           const remaining = endsAt - new Date();
           if (remaining <= 0) {
             clearInterval(interval);
-            container.innerHTML = '<h5>目前無洗衣行程</h5>';
+            containerUsage.innerHTML = '<h5>目前無洗衣行程</h5>';
             await fetch(`/api/finished/${usage.Usage_ID}`, {method: 'POST'});
             alert('洗衣行程結束！');
             return;
           }
           const m = Math.floor(remaining / 60000);
           const s = Math.floor((remaining % 60000) / 1000);
-          container.innerHTML = `
+          containerUsage.innerHTML = `
           <h2>您的洗衣行程</h2>
           <div class="card-body">
             <h5 class="card-title">正在使用 ${usage.Machine_ID} 號機</h5>
@@ -46,6 +46,25 @@
           </div>
           `;}, 1000)
       };
+      async function loadQueue() {
+        const response = await fetch('/api/my_queue');
+        const queue = await response.json();
+        console.log(queue);
+        const containerQueue = document.getElementById('queue-container');
+        if (!queue || queue.length === 0) {
+          containerQueue.innerHTML = '<h5>目前沒有排隊中的機台</h5>';
+          return;
+        }
+        containerQueue.innerHTML = `
+        <h2>您排隊中的機台</h2>
+        <div class="card-body">
+          <h5 class="card-title"> ${queue.Machine_Number} 號機</h5>
+          <p class="card-text"> ${queue.Dorm} ${queue.Floor}F - ${queue.Laundry_Room}</p>
+          <p class="card-text"> 排隊序號：${queue.Reservation_Number}</p>
+        </div>
+        `;
+      };
       checkLogin(loadUsage);
+      checkLogin(loadQueue);
     </script>
 <%- include('partials/footer') %>

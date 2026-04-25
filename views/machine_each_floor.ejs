@@ -32,7 +32,6 @@
                 const card = document.createElement('div');
                 let machineBtn = '';
                 if (m.Waiting_Queue_Count == 0) {
-                    // machineBtn = `<button id="scan-btn-${m.Machine_ID}"><a href="/scan_qr">掃碼使用</a></button>`;
                     machineBtn = `<button id="scan-btn-${m.Machine_ID}" onclick="location.href='/scan_qr?machine_id=${m.Machine_ID}'">掃碼使用</button>`
                 }
                 else {
