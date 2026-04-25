@@ -2,7 +2,24 @@
 import express from "express";
 import mysqlConnectionPool from "./lib/mysql.js";
 import session from 'express-session';
+import multer from 'multer';
+import path from 'path';
 const app = express();
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'maintenance_photo/');
+  },
+
+  filename: function (req, file, cb) {
+    const uniqueName =
+      Date.now() + path.extname(file.originalname);
+
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // first middleware
 app.use(express.json());
@@ -226,7 +243,7 @@ app.get('/api/machines/:dorm/:floor', async (req,res)=>{
 });
 
 // sync maintenance data
-app.post('/maintenance', async(req,res) =>{
+app.post('/maintenance', upload.single('photo'), async(req,res) =>{
   console.log("session:", req.session);
   console.log("user_id:", req.session.user_id);
   console.log("body:", req.body);
@@ -240,14 +257,16 @@ app.post('/maintenance', async(req,res) =>{
             description
         } = req.body;
 
+        const photo = req.file ? req.file.filename : null;
+
         const final_description =
             issue_type + ' - ' + description;
 
         await mysqlConnectionPool.query(`
-            INSERT INTO Maintenance
-            (User_ID, Machine_ID, Description, Request_Time)
-            VALUES (?, ?, ?, NOW())
-        `, [user_id, machine_id, final_description]);
+        INSERT INTO Maintenance
+        (User_ID, Machine_ID, Description, Request_Time, Photo)
+        VALUES (?, ?, ?, NOW(), ?)
+        `, [user_id, machine_id, final_description, photo]);
 
         res.send(`
         <script>
@@ -265,6 +284,10 @@ app.post('/maintenance', async(req,res) =>{
         `);
   }
 });
+
+// upload photo
+app.use('/maintenance_photo', express.static('maintenance_photo'));
+
 
 app.listen(3000, () => {
   console.log("Server starts at port 3000");
