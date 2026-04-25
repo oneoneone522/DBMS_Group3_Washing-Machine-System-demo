@@ -224,6 +224,48 @@ app.get('/api/machines/:dorm/:floor', async (req,res)=>{
 
     res.json(rows);
 });
+
+// sync maintenance data
+app.post('/maintenance', async(req,res) =>{
+  console.log("session:", req.session);
+  console.log("user_id:", req.session.user_id);
+  console.log("body:", req.body);
+  try{
+
+        const user_id = req.session.user_id;
+
+        const {
+            machine_id,
+            issue_type,
+            description
+        } = req.body;
+
+        const final_description =
+            issue_type + ' - ' + description;
+
+        await mysqlConnectionPool.query(`
+            INSERT INTO Maintenance
+            (User_ID, Machine_ID, Description, Request_Time)
+            VALUES (?, ?, ?, NOW())
+        `, [user_id, machine_id, final_description]);
+
+        res.send(`
+        <script>
+        alert('報修成功！管理員將盡快處理');
+        location.href='/';
+        </script>
+        `);
+
+    } catch(error) {
+        console.log(error);
+        res.send(`<script>
+        alert('報修失敗，請稍後再試');
+        history.back();
+        </script>
+        `);
+  }
+});
+
 app.listen(3000, () => {
   console.log("Server starts at port 3000");
 });
