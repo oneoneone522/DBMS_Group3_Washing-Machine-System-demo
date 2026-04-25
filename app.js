@@ -175,6 +175,23 @@ app.get('/logout', (req,res) =>{
 
 });
 
+//penalty
+app.get('/penalty', (req,res) =>{
+  res.render('penalty', { title: '違規紀錄' });
+});
+
+// maintenance page
+app.get('/maintenance', async (req,res) => {
+  const [dorms] = await mysqlConnectionPool.query(`
+      SELECT DISTINCT Dorm
+      FROM machine
+      ORDER BY Dorm
+  `);
+  res.render('maintenance', {
+      title:'設備報修',
+      dorms
+  });
+});
 
 
 app.listen(3000, () => {
