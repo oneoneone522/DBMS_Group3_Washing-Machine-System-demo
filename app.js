@@ -27,8 +27,10 @@ app.set('views', './views');
 
 //index
 app.get('/', (req, res) => {
-  const machine_id = req.query.machine_id || null;
-  res.render('index',{ title: '使用狀態' , machine_id: machine_id });
+  const just_reserved_machine_id = req.session.just_reserved_machine_id || null;
+  req.session.just_reserved_machine_id = null; // 讀取後就清除，確保只顯示一次
+  // req.session.just_finished_machine_id = null;
+  res.render('index',{ title: '使用狀態' , just_reserved_machine_id, machine_id: just_reserved_machine_id });
 });
 
 app.get('/api/check-login', (req, res) => {
@@ -38,19 +40,24 @@ app.get('/api/check-login', (req, res) => {
   return res.json({ logged_in: false });
 });
 
-app.get('/api/usage_record', async (req, res) => {
+//current_usage
+app.get('/api/current_usage', async (req, res) => {
   if (!req.session.user_id) {
-    return res.redirect("/login");
+    return res.status(401).json({ message: "請先登入" });
   }
-
   const [rows] = await mysqlConnectionPool.query(
-    `SELECT ur.Usage_ID, ur.Usage_Status, ur.Usage_Status, ur.Machine_ID
+    `SELECT ur.Usage_ID, 
+            ur.Usage_Status, 
+            ur.Machine_ID, 
+            ur.Estimated_End_Time,
+            m.Machine_Number, 
+            m.Floor, m.Dorm, 
+            m.Laundry_Room
      FROM Usage_Record ur
-     WHERE ur.User_ID = ?`,
-    [req.session.user_id]
+     JOIN Machine m ON ur.Machine_ID = m.Machine_ID
+     WHERE ur.User_ID = ? AND ur.Usage_Status = 'in_use'`,[req.session.user_id]
   );
-
-  return res.status(200).json(rows);
+  return res.status(200).json(rows[0] ?? null); 
 });
 
 //machine
@@ -182,14 +189,15 @@ app.get('/scan_qr', (req, res) => {
 });
 
 //Use Mahcine
-app.post('/api/use_machine/:machine_id', async (req, res) => {
+app.get('/use_machine/:machine_id', async (req, res) => {
+  if (!req.session.user_id) {
+    return res.redirect('/login');
+  }
   const machine_id = req.params.machine_id;
   const user_id = req.session.user_id;
-
-  if (!user_id) return res.status(401).json({ message: '請先登入' });
   try {
     await mysqlConnectionPool.query(
-      `INSERT INTO usage_record (User_ID, Machine_ID, Queue_ID, Usage_Status) 
+      `INSERT INTO usage_record (User_ID, Machine_ID, Queue_ID, Estimated_End_Time,Usage_Status) 
       VALUES (?, 
               ?, 
               (SELECT Queue_ID 
@@ -198,27 +206,47 @@ app.post('/api/use_machine/:machine_id', async (req, res) => {
                     AND Machine_ID = ? 
                     AND Reservation_Status = 'waiting' 
                     ORDER BY Reservation_Number LIMIT 1),
+                    DATE_ADD(NOW(), INTERVAL 1 MINUTE),
               'in_use')`,[user_id, machine_id, user_id, machine_id]
     );
-
     await mysqlConnectionPool.query(
       `UPDATE Machine SET in_use = 'busy' WHERE Machine_ID = ?`, [machine_id]
     );
-    return res.status(200).json({ message: '開始使用' });
+
+    req.session.just_reserved_machine_id = machine_id;
+    return res.redirect(`/`);
   }
   catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).send('伺服器錯誤');
   }
 });
 
-app.get('/use_machine/:machine_id', async (req, res) => {
+//Finish using machine
+app.post('/api/finished/:usage_id', async (req, res) => {
   if (!req.session.user_id) {
-    return res.json({message: '請先登入'});
+    return res.redirect('/login');
   }
-  const machine_id = req.params.machine_id;
-  const user_id = req.session.user_id;
-  return res.redirect('/?machine_id=${machine_id}');
+  const usage_id = req.params.usage_id;
+  try {
+      const [rows] = await mysqlConnectionPool.query(
+      `SELECT Machine_ID FROM usage_record WHERE Usage_ID = ?`, [usage_id]
+      );
+      const machine_id = rows[0].Machine_ID;
+      await mysqlConnectionPool.query(
+      `UPDATE MACHINE SET in_use = 'idle' WHERE Machine_ID = ?`, [machine_id]
+    );
+    await mysqlConnectionPool.query(
+      `UPDATE usage_record SET Usage_Status = 'finished' WHERE Machine_ID = ?`, [machine_id]
+    );
+    // req.session.just_finished_machine_id = machine_id;
+    return res.status(200).json({message: "洗衣完成！"});
+  }
+  catch (error) {
+    console.error(error);
+    return res.status(500).send('伺服器錯誤');
+  }
+  
 });
 
 //signup
