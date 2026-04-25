@@ -208,6 +208,22 @@ app.get('/api/floors/:dorm', async (req,res) => {
     res.json(rows);
 });
 
+// get machine name
+app.get('/api/machines/:dorm/:floor', async (req,res)=>{
+
+    const dorm = req.params.dorm;
+    const floor = req.params.floor;
+
+    const [rows] = await mysqlConnectionPool.query(`
+        SELECT Machine_ID, Machine_Number
+        FROM machine
+        WHERE Dorm = ?
+        AND Floor = ?
+        AND Machine_Status != '故障中'
+    `,[dorm, floor]);
+
+    res.json(rows);
+});
 app.listen(3000, () => {
   console.log("Server starts at port 3000");
 });
