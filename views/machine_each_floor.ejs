@@ -1,11 +1,10 @@
 <!-- machine_each_floor.ejs -->
 <%- include('partials/header') %>
 <h1><%= Dorm %> <%= floor %> 樓洗衣機使用狀況</h1>
-<div id="floor-btn">
+<div id="floor-btn-container"></div>
 
-</div>
-<!-- <button type="button" class="btn btn-primary">Primary</button> -->
 <div id="floor-machine-status"></div>
+<card id="back-to-index-card"></card>
 <script src="/js/checkLogin.js"></script>
 <script>
     const currentFloor = '<%= floor %>';
@@ -29,39 +28,88 @@
             //每台機器一張卡片
             floorStatus[floor].forEach(m => {
                 const card = document.createElement('div');
+                let machineBtn = '';
+                if (m.Waiting_Queue_Count == 0) {
+                    machineBtn = `<button id="scan-btn-${m.Machine_ID}" onclick="location.href='/scan_qr?machine_id=${m.Machine_ID}'">掃碼使用</button>`
+                }
+                else {
+                    machineBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})">我要排隊</button>`;
+                }
                 card.className = 'card';
                 card.innerHTML = `<p> ${m.Machine_Number} 號機</p>
                             <p> ${m.Machine_Status} </p>
                             <p>剩餘時間： ${m.Remaining_Time} </p>
                             <p>排隊人數： ${m.Waiting_Queue_Count} </p>
-                            <button><a href="/go to 排隊頁面">我要排隊</a></button>`
-                            ;
+                            ${machineBtn}`;
                             container.appendChild(card);
             });
         });
     };
 
+    async function joinQueue(machine_id) {
+        const btn = document.getElementById(`queue-btn-${machine_id}`);
+        btn.disabled = true;
+        btn.textContent= "處理中...";
+
+        const respose = await fetch(`/api/queue/${machine_id}`, {
+            method: 'POST'
+        });
+        if (respose.ok) {
+            alert('排隊成功');
+            btn.textContent = "已登記排隊";
+            const card = document.getElementById('back-to-index-card');
+            const backBtn = document.createElement('button');
+            backBtn.textContent = "回到首頁";
+            backBtn.onclick = () =>window.location.href = '/';
+            card.appendChild(backBtn);
+        }
+        else {
+            alert('排隊失敗');
+            btn.disabled = false;
+            btn.textContent = "我要排隊";
+        }
+    };
+    
+    async function scanQR(machine_id) {
+        const btn = document.getElementById(`scan-btn-${machine_id}`);
+        btn.disabled = true;
+        btn.textContent= "處理中...";
+        if (machine_id) {
+            window.location.href = `/scan_qr?machine_id=${machine_id}`;
+        }
+    }
     async function floorBtn(){
         const response  = await fetch('/api/machine/my-dorm');
         const floorMachineStatus = await response.json();
         const floorStatus = {};
         floorMachineStatus.forEach(mStatus => {
             const floor = mStatus.Floor;
-            if (!floorStatus[floor]) {
+            if(!floorStatus[floor]) {
                 floorStatus[floor] = [];
             }
             floorStatus[floor].push(mStatus);
         });
 
-        const container = document.getElementById('floor-btn');
+        const currentFloor = window.location.pathname.split('/').pop();
+        const container = document.getElementById('floor-btn-container');
         Object.keys(floorStatus).forEach(floor => {
             const btn = document.createElement('button');
-            btn.className = 'btn btn-primary';
-            btn.innerHTML = `<a href="/machine/floor/${floor}">${floor} 樓</a>`;
+            btn.id = `floor-btn-${floor}`;
+            btn.onclick = () => {
+                window.location.href = `/machine/floor/${floor}`;
+            };
+            btn.innerHTML = `<p>${floor} 樓</p>`;
+            if (floor === currentFloor) {
+                btn.className = 'btn btn-primary';
+            } 
+            else {
+                btn.className = 'btn btn-secondary';
+            }
             container.appendChild(btn);
         });
-    };
+    }
     checkLogin();
     FloorMachineStatus();
+    floorBtn();
 </script>
 <%- include('partials/footer') %>
