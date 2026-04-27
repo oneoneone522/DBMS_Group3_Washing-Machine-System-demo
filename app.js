@@ -2,7 +2,24 @@
 import express from "express";
 import mysqlConnectionPool from "./lib/mysql.js";
 import session from 'express-session';
+import multer from 'multer';
+import path from 'path';
 const app = express();
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'maintenance_photo/');
+  },
+
+  filename: function (req, file, cb) {
+    const uniqueName =
+      Date.now() + path.extname(file.originalname);
+
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // first middleware
 app.use(express.json());
@@ -342,6 +359,128 @@ app.get('/logout', (req,res) =>{
 
 });
 
+//penalty page
+app.get('/penalty', async (req,res) => {
+    try{
+        if(!req.session.user_id){
+            return res.redirect('/login');
+        }
+        const user_id = req.session.user_id;
+        // 目前總扣點
+        const [pointRows] = await mysqlConnectionPool.query(`
+            SELECT IFNULL(SUM(Point),0) AS totalPoint
+            FROM Penalty
+            WHERE User_ID = ?
+        `,[user_id]);
+        const totalPoint = pointRows[0].totalPoint;
+        // 違規紀錄
+        const [records] = await mysqlConnectionPool.query(`
+            SELECT *
+            FROM Penalty
+            WHERE User_ID = ?
+            ORDER BY Created_At DESC
+        `,[user_id]);
+        res.render('penalty',{
+            title:'違規紀錄',
+            totalPoint,
+            records
+        });
+    }catch(error){
+        console.log(error);
+        res.send('載入違規紀錄失敗');
+    }
+});
+
+// maintenance page
+app.get('/maintenance', async (req,res) => {
+  const [dorms] = await mysqlConnectionPool.query(`
+      SELECT DISTINCT Dorm
+      FROM machine
+      ORDER BY Dorm
+  `);
+  res.render('maintenance', {
+      title:'設備報修',
+      dorms
+  });
+});
+
+// get floor
+app.get('/api/floors/:dorm', async (req,res) => {
+
+    const dorm = req.params.dorm;
+
+    const [rows] = await mysqlConnectionPool.query(`
+        SELECT DISTINCT Floor
+        FROM machine
+        WHERE Dorm = ?
+        ORDER BY Floor
+    `,[dorm]);
+
+    res.json(rows);
+});
+
+// get machine name
+app.get('/api/machines/:dorm/:floor', async (req,res)=>{
+
+    const dorm = req.params.dorm;
+    const floor = req.params.floor;
+
+    const [rows] = await mysqlConnectionPool.query(`
+        SELECT Machine_ID, Machine_Number
+        FROM machine
+        WHERE Dorm = ?
+        AND Floor = ?
+        AND Machine_Status != '故障中'
+    `,[dorm, floor]);
+
+    res.json(rows);
+});
+
+// sync maintenance data
+app.post('/maintenance', upload.single('photo'), async(req,res) =>{
+  console.log("session:", req.session);
+  console.log("user_id:", req.session.user_id);
+  console.log("body:", req.body);
+  try{
+
+        const user_id = req.session.user_id;
+
+        const {
+            machine_id,
+            issue_type,
+            description
+        } = req.body;
+
+        const photo = req.file ? req.file.filename : null;
+
+        const final_description =
+            issue_type + ' - ' + description;
+
+        await mysqlConnectionPool.query(`
+        INSERT INTO Maintenance
+        (User_ID, Machine_ID, Description, Request_Time, Photo)
+        VALUES (?, ?, ?, NOW(), ?)
+        `, [user_id, machine_id, final_description, photo]);
+
+        res.send(`
+        <script>
+        alert('報修成功！管理員將盡快處理');
+        location.href='/';
+        </script>
+        `);
+
+    } catch(error) {
+        console.log(error);
+        res.send(`<script>
+        alert('報修失敗，請稍後再試');
+        history.back();
+        </script>
+        `);
+  }
+});
+
+// upload photo
+app.use('/maintenance_photo', express.static('maintenance_photo'));
 
 
 app.listen(3000, () => {
