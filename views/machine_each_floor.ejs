@@ -1,10 +1,8 @@
 <!-- machine_each_floor.ejs -->
 <%- include('partials/header') %>
 <h1><%= Dorm %> <%= floor %> 樓洗衣機使用狀況</h1>
-<div id="floor-btn">
+<div id="floor-btn-container"></div>
 
-</div>
-<!-- <button type="button" class="btn btn-primary">Primary</button> -->
 <div id="floor-machine-status"></div>
 <card id="back-to-index-card"></card>
 <script src="/js/checkLogin.js"></script>
@@ -86,21 +84,32 @@
         const floorStatus = {};
         floorMachineStatus.forEach(mStatus => {
             const floor = mStatus.Floor;
-            if (!floorStatus[floor]) {
+            if(!floorStatus[floor]) {
                 floorStatus[floor] = [];
             }
             floorStatus[floor].push(mStatus);
         });
 
-        const container = document.getElementById('floor-btn');
+        const currentFloor = window.location.pathname.split('/').pop();
+        const container = document.getElementById('floor-btn-container');
         Object.keys(floorStatus).forEach(floor => {
             const btn = document.createElement('button');
-            btn.className = 'btn btn-primary';
-            btn.innerHTML = `<a href="/machine/floor/${floor}">${floor} 樓</a>`;
+            btn.id = `floor-btn-${floor}`;
+            btn.onclick = () => {
+                window.location.href = `/machine/floor/${floor}`;
+            };
+            btn.innerHTML = `<p>${floor} 樓</p>`;
+            if (floor === currentFloor) {
+                btn.className = 'btn btn-primary';
+            } 
+            else {
+                btn.className = 'btn btn-secondary';
+            }
             container.appendChild(btn);
         });
-    };
+    }
     checkLogin();
     FloorMachineStatus();
+    floorBtn();
 </script>
 <%- include('partials/footer') %>
