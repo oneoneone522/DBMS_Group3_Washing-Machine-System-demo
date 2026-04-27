@@ -196,8 +196,17 @@ app.post ('/api/cancel_queue/:machine_id', async (req, res) => {
   const user_id = req.session.user_id;
 
   await mysqlConnectionPool.query(
-    `DELETE FROM queue_record
+    `UPDATE queue_record
+    SET Reservation_Status = 'cancelled'
     WHERE User_ID = ? AND Machine_ID = ? AND Reservation_Status = 'waiting'`, [user_id, machine_id]
+  );
+  await mysqlConnectionPool.query(
+    `UPDATE queue_record
+    SET Reservation_Number = Reservation_Number - 1
+    WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number > 0`, [machine_id]
+  );
+  //await fetch(...) 會等到收到 HTTP Response 才繼續往下執行
+  return res.status(200).json({ message: "成功取消排隊" }
   );
 });
 

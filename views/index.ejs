@@ -67,9 +67,11 @@
       };
 
       async function cancelQueue(machine_id) {
-        await fetch(`/api/cancel_queue/${machine_id}`, {method: 'POST'});
-        alert('已取消排隊');
-        loadQueue();
+        if (confirm('確定要取消排隊?')) {
+          await fetch(`/api/cancel_queue/${machine_id}`, {method: 'POST'});
+          alert('已取消排隊');
+          loadQueue();
+        }
       }
       checkLogin(loadUsage);
       checkLogin(loadQueue);
