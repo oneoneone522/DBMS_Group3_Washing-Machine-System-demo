@@ -206,7 +206,7 @@ app.get('/api/my_queue', async (req, res) => {
   }
   const user_id = req.session.user_id;
   const [rows] = await mysqlConnectionPool.query(
-    `SELECT qr.Machine_ID, qr.Reservation_Number, m.Machine_Number, m.Floor, m.Dorm, m.Laundry_Room
+    `SELECT qr.Machine_ID, qr.Reservation_Number, qr.Reservation_Status, m.Machine_Number, m.Floor, m.Dorm, m.Laundry_Room
     FROM queue_record qr
     LEFT JOIN Machine m ON qr.Machine_ID = m.Machine_ID
     WHERE qr.User_ID = ? AND qr.Reservation_Status = 'waiting'`, [user_id]
@@ -288,6 +288,12 @@ app.get('/use_machine/:machine_id', async (req, res) => {
     );
     await mysqlConnectionPool.query(
       `UPDATE Machine SET in_use = 'busy' WHERE Machine_ID = ?`, [machine_id]
+    );
+
+    await mysqlConnectionPool.query(
+      `UPDATE queue_record
+      SET Reservation_Status = 'completed'
+      WHERE User_ID = ? AND Machine_ID = ? AND Reservation_Status = 'waiting'`, [user_id, machine_id]
     );
 
     req.session.just_reserved_machine_id = machine_id;

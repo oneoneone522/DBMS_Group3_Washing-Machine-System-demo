@@ -54,23 +54,32 @@
         const queue = await response.json();
         console.log("queue: ",queue);
         const containerQueue = document.getElementById('queue-container');
-        if (!queue || queue.length === 0) {
+        if (!queue || (queue.Reservation_Number === "0" && queue.Reservation_Status === 'completed')) {
           containerQueue.innerHTML = '<h5>目前沒有排隊中的機台</h5>';
           return;
         }
         let queueBtn = '';
-        if (queue.Reservation_Number === 0) {
-          queueBtn = `<button class="btn btn-success" onclick="location.href='/scan_qr?machine_id=${queue.Machine_ID}'">掃碼使用</button>`;
+        let alertText = '';
+        if (queue.Reservation_Status === 'waiting') {
+          if (queue.Reservation_Number === "0") {
+            queueBtn = `<button class="btn btn-success" onclick="location.href='/scan_qr?machine_id=${queue.Machine_ID}'">掃碼使用</button>`;
+            alertText = '輪到您了！請於時間內掃碼使用，逾時將取消資格';
+            // queueAlertShown = true;
+          }
+          else{
+            queueBtn = `<button class="btn btn-danger" id="cancelBtn" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>`;
+            alertText = `排隊序號： ${queue.Reservation_Number}`;
+          }
         }
-        else {
-          queueBtn = `<button class="btn btn-danger" id="cancelBtn" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>`;
-        }
+        
+
+      
         containerQueue.innerHTML = `
         <h2>您排隊中的機台</h2>
         <div class="card-body">
           <h5 class="card-title"> ${queue.Machine_Number} 號機</h5>
           <p class="card-text"> ${queue.Dorm} ${queue.Floor}F - ${queue.Laundry_Room}</p>
-          <p class="card-text"> 排隊序號：${queue.Reservation_Number}</p>
+          <p class="card-text"> ${alertText}</p>
           ${queueBtn}
         </div>
         `;

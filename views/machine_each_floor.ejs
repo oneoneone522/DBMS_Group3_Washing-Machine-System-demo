@@ -34,7 +34,7 @@
             container.appendChild(title);
             //每台機器一張卡片
             floorStatus[floor].forEach(m => {
-                console.log(m);
+                console.log("m: ", m);
                 const card = document.createElement('div');
                 let machineBtn = '';
                 if (isInUse) {
@@ -47,9 +47,23 @@
                     machineBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})">我要排隊</button>`;
                 }
                 card.className = 'card';
+                let machineStatusText = '';
+                if (m.Machine_Status === '故障') { 
+                    machineStatusText = m.Machine_Status;
+                }
+
+                // let remainingTimeText = '';
+                // if (currentUsage.Remaining_Time) {
+                //     const m = Math.floor(currentUsage.Remaining_Time / 60000);
+                //     const s = Math.floor((currentUsage.Remaining_Time % 60000) / 1000);
+                //     remainingTimeText = `${m} 分 ${s} 秒`;
+                // }
+                // else {
+                //     remainingTimeText = '此機台目前無人使用';
+                // }
                 card.innerHTML = `<p> ${m.Machine_Number} 號機</p>
-                            <p> ${m.Machine_Status} </p>
-                            <p>剩餘時間： ${m.Remaining_Time} </p>
+                            <p>${machineStatusText}</p>
+                            <p>剩餘時間： No No 還沒做好^^</p>
                             <p>排隊人數： ${m.Waiting_Queue_Count} </p>
                             ${machineBtn}`;
                             container.appendChild(card);
