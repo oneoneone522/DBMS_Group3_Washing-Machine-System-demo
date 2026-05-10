@@ -46,14 +46,24 @@
           </div>
           `;}, 1000)
       };
+      
+      let queueAlertShown = false;
+
       async function loadQueue() {
         const response = await fetch('/api/my_queue');
         const queue = await response.json();
-        console.log(queue);
+        console.log("queue: ",queue);
         const containerQueue = document.getElementById('queue-container');
         if (!queue || queue.length === 0) {
           containerQueue.innerHTML = '<h5>目前沒有排隊中的機台</h5>';
           return;
+        }
+        let queueBtn = '';
+        if (queue.Reservation_Number === 0) {
+          queueBtn = `<button class="btn btn-success" onclick="location.href='/scan_qr?machine_id=${queue.Machine_ID}'">掃碼使用</button>`;
+        }
+        else {
+          queueBtn = `<button class="btn btn-danger" id="cancelBtn" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>`;
         }
         containerQueue.innerHTML = `
         <h2>您排隊中的機台</h2>
@@ -61,7 +71,7 @@
           <h5 class="card-title"> ${queue.Machine_Number} 號機</h5>
           <p class="card-text"> ${queue.Dorm} ${queue.Floor}F - ${queue.Laundry_Room}</p>
           <p class="card-text"> 排隊序號：${queue.Reservation_Number}</p>
-          <button class="btn btn-danger" id="cancelBtn" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>
+          ${queueBtn}
         </div>
         `;
       };

@@ -11,8 +11,14 @@
     async function FloorMachineStatus(){
         const response  = await fetch(`/api/machine/floor/${currentFloor}`);
         const floorMachineStatus = await response.json();
+
+        const usageResponse = await fetch('/api/current_usage');
+        const currentUsage = await usageResponse.json();
+        console.log('Current Usage:', currentUsage);
+        const isInUse = currentUsage !== null;
         const floorStatus = {};
         floorMachineStatus.forEach(mStatus => {
+            
             const floor = mStatus.Floor;
             if (!floorStatus[floor]) {
                 floorStatus[floor] = [];
@@ -21,15 +27,20 @@
         });
 
         const container = document.getElementById('floor-machine-status');
+        container.innerHTML = '';
         Object.keys(floorStatus).forEach(floor => {
             const title = document.createElement('h3');
             title.textContent = `${floor} 樓`;
             container.appendChild(title);
             //每台機器一張卡片
             floorStatus[floor].forEach(m => {
+                console.log(m);
                 const card = document.createElement('div');
                 let machineBtn = '';
-                if (m.Waiting_Queue_Count == 0) {
+                if (isInUse) {
+                    machineBtn = `<button disabled>洗衣中</button>`;
+                }
+                else if (m.Waiting_Queue_Count == 0 && m.in_use === 'idle' && m.Machine_Status === '正常') {
                     machineBtn = `<button id="scan-btn-${m.Machine_ID}" onclick="location.href='/scan_qr?machine_id=${m.Machine_ID}'">掃碼使用</button>`
                 }
                 else {
@@ -92,6 +103,7 @@
 
         const currentFloor = window.location.pathname.split('/').pop();
         const container = document.getElementById('floor-btn-container');
+        container.innerHTML = '';
         Object.keys(floorStatus).forEach(floor => {
             const btn = document.createElement('button');
             btn.id = `floor-btn-${floor}`;

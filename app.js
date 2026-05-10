@@ -38,7 +38,17 @@ app.use(session({
   cookie: { secure: false }   // 本地開發用 false，上線再改 true
 }));
 app.use(express.static('public'));
-
+app.use(async (req, res, next) => {
+  if (req.session.user_id) {
+    const [rows] = await mysqlConnectionPool.query(
+      `SELECT User_Name FROM User WHERE User_ID = ?`, [req.session.user_id]
+    );
+    res.locals.user_name = rows[0]?.User_Name ?? null;
+  } else {
+    res.locals.user_name = null;
+  }
+  next();
+});
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
@@ -46,7 +56,6 @@ app.set('views', './views');
 app.get('/', (req, res) => {
   const just_reserved_machine_id = req.session.just_reserved_machine_id || null;
   req.session.just_reserved_machine_id = null; // 讀取後就清除，確保只顯示一次
-  // req.session.just_finished_machine_id = null;
   res.render('index',{ title: '使用狀態' , just_reserved_machine_id, machine_id: just_reserved_machine_id });
 });
 
@@ -146,6 +155,7 @@ app.get('/api/machine/floor/:floor', async (req, res) => {
       SUM(CASE WHEN qr.Reservation_Status = 'waiting' THEN 1 ELSE 0 END) AS Waiting_Queue_Count
     FROM Machine m
     LEFT JOIN usage_record ur ON m.Machine_ID = ur.Machine_ID
+      AND ur.Usage_Status = 'in_use'    -- ← 只 JOIN 進行中的紀錄
     LEFT JOIN queue_record qr ON m.Machine_ID = qr.Machine_ID
     WHERE m.Floor = ? AND m.Dorm = ?
     GROUP BY m.Machine_ID, m.Machine_Number, m.Machine_Status, m.Laundry_Room, m.Floor, m.Dorm, ur.Usage_Status;`,[floor, userDorm]
@@ -222,7 +232,6 @@ app.post ('/api/cancel_queue/:machine_id', async (req, res) => {
     SET Reservation_Number = Reservation_Number - 1
     WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number > 0`, [machine_id]
   );
-  //await fetch(...) 會等到收到 HTTP Response 才繼續往下執行
   return res.status(200).json({ message: "成功取消排隊" }
   );
 });
@@ -249,6 +258,21 @@ app.get('/use_machine/:machine_id', async (req, res) => {
   const machine_id = req.params.machine_id;
   const user_id = req.session.user_id;
   try {
+    // 檢查機器是否真的 idle
+    const [machineRows] = await mysqlConnectionPool.query(
+      `SELECT in_use FROM Machine WHERE Machine_ID = ?`, [machine_id]
+    );
+    if (!machineRows[0] || machineRows[0].in_use !== 'idle') {
+      return res.status(400).send('此機器目前無法使用');
+    }
+    // 檢查使用者是否已有進行中的洗衣行程
+    const [existingUsage] = await mysqlConnectionPool.query(
+      `SELECT Usage_ID FROM usage_record WHERE User_ID = ? AND Usage_Status = 'in_use'`,
+      [user_id]
+    );
+    if (existingUsage.length > 0) {
+      return res.status(400).send('你已有進行中的洗衣行程');
+    }
     await mysqlConnectionPool.query(
       `INSERT INTO usage_record (User_ID, Machine_ID, Queue_ID, Estimated_End_Time,Usage_Status) 
       VALUES (?, 
@@ -259,7 +283,7 @@ app.get('/use_machine/:machine_id', async (req, res) => {
                     AND Machine_ID = ? 
                     AND Reservation_Status = 'waiting' 
                     ORDER BY Reservation_Number LIMIT 1),
-                    DATE_ADD(NOW(), INTERVAL 1 MINUTE),
+                    DATE_ADD(NOW(), INTERVAL 2 MINUTE),
               'in_use')`,[user_id, machine_id, user_id, machine_id]
     );
     await mysqlConnectionPool.query(
@@ -288,10 +312,10 @@ app.post('/api/finished/:usage_id', async (req, res) => {
         );
         const machine_id = rows[0].Machine_ID;
         await mysqlConnectionPool.query(
-        `UPDATE MACHINE SET in_use = 'idle' WHERE Machine_ID = ?`, [machine_id]
+        `UPDATE machine SET in_use = 'idle' WHERE Machine_ID = ?`, [machine_id]
         );
         await mysqlConnectionPool.query(
-          `UPDATE usage_record SET Usage_Status = 'finished' WHERE Machine_ID = ?`, [machine_id]
+          `UPDATE usage_record SET Usage_Status = 'finished' WHERE Usage_ID = ?`, [usage_id]
         );
         await mysqlConnectionPool.query(
           `UPDATE queue_record
@@ -317,11 +341,12 @@ app.get('/api/dorm', async (req, res) => {
   return res.status(200).json(rows);
 });
 app.post("/signup", async (req, res) => {
-  const dorm = req.body["dorm"];
-  const user_name = req.body["user_name"];
-  const student_id = req.body["student_id"];
-  const email = req.body["email"];
-  const password = req.body["password"];
+  const { dorm, user_name, student_id, email, password } = req.body;
+  // const dorm = req.body["dorm"];
+  // const user_name = req.body["user_name"];
+  // const student_id = req.body["student_id"];
+  // const email = req.body["email"];
+  // const password = req.body["password"];
 
   await mysqlConnectionPool.query(
     "INSERT INTO User (Dorm, User_Name, Student_ID, Email, Password) VALUES (?, ?, ?, ?, ?)",
@@ -336,9 +361,8 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-  const email = req.body["email"];
-  const password = req.body["password"];
 
+  const {email, password} = req.body;
   const result = await mysqlConnectionPool.query(
     "SELECT User_ID FROM User WHERE Email = ? AND Password = ?",
     [email, password]
