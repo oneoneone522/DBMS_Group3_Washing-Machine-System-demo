@@ -77,18 +77,23 @@ function showNewPopup(data) {
   data.forEach(item => {
     const id = String(item.Notification_ID);
 
-    if (!shownIds.has(id)) {
-      shownIds.add(id);
-      localStorage.setItem('shownNotificationIds', JSON.stringify([...shownIds]));
-
-      const modalElement = document.getElementById('notificationModal');
-      const modalBody = document.getElementById('notificationModalBody');
-
-      modalBody.innerHTML = item.Notification_Type;
-
-      const modal = new bootstrap.Modal(modalElement);
-      modal.show();
+    if (shownIds.has(id)) {
+      return;
     }
+
+    shownIds.add(id);
+    localStorage.setItem(
+      'shownNotificationIds',
+      JSON.stringify([...shownIds])
+    );
+
+    const modalElement = document.getElementById('notificationModal');
+    const modalBody = document.getElementById('notificationModalBody');
+
+    modalBody.innerHTML = item.Notification_Type;
+
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
   });
 }
 
