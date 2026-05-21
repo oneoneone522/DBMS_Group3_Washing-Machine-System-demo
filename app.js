@@ -512,6 +512,59 @@ app.post('/maintenance', upload.single('photo'), async(req,res) =>{
 // upload photo
 app.use('/maintenance_photo', express.static('maintenance_photo'));
 
+// notifications api
+app.get('/api/notifications', async (req, res) => {
+  if (!req.session.user_id) {
+    return res.status(401).json([]);
+  }
+
+  try {
+    const user_id = req.session.user_id;
+
+    // 找目前進行中、剩 0~10 秒結束的洗衣紀錄
+    const [usageRows] = await mysqlConnectionPool.query(`
+      SELECT Usage_ID, User_ID
+      FROM usage_record
+      WHERE User_ID = ?
+        AND Usage_Status = 'in_use'
+        AND TIMESTAMPDIFF(SECOND, NOW(), Estimated_End_Time) BETWEEN 9 AND 10
+    `, [user_id]);
+
+    // 若還沒建立通知，就新增一筆
+    for (const usage of usageRows) {
+      const [existing] = await mysqlConnectionPool.query(`
+        SELECT Notification_ID
+        FROM notifications
+        WHERE User_ID = ?
+          AND Usage_ID = ?
+          AND Notification_Type = '洗衣剩餘10秒'
+      `, [user_id, usage.Usage_ID]);
+
+      if (existing.length === 0) {
+        await mysqlConnectionPool.query(`
+          INSERT INTO notifications
+          (User_ID, Queue_ID, Usage_ID, Notification_Type, Notification_Time)
+          VALUES (?, NULL, ?, '洗衣剩餘10秒', NOW())
+        `, [user_id, usage.Usage_ID]);
+      }
+    }
+
+    // 回傳所有通知紀錄
+    const [notifications] = await mysqlConnectionPool.query(`
+      SELECT Notification_ID, User_ID, Queue_ID, Usage_ID, Notification_Type, Notification_Time
+      FROM notifications
+      WHERE User_ID = ?
+      ORDER BY Notification_Time DESC
+      LIMIT 20
+    `, [user_id]);
+
+    res.json(notifications);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json([]);
+  }
+});
 
 app.listen(3000, () => {
   console.log("Server starts at port 3000");
