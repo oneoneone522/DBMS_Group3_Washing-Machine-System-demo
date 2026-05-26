@@ -1,18 +1,45 @@
 <%- include('partials/header') %>
-    <div class="card" style="width: 18rem;">
-      <div class="card-body">
-        <h5 class="card-title">登入</h5>
-        <form id="login-form" action="/login" method="POST">
-            <div class="mb-3">
-                <label for="email" class="form-label">Email address</label>
-                <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com">
-            </div>
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input class="form-control" type="password" id="password" name="password" placeholder="Password" aria-label="Password input example">
-            </div>
-            <button type="submit" class="btn btn-primary">登入</button>
-        </form>
+
+<div class="login-page">
+  <div class="login-card">
+
+    <h2 class="login-title">系統登入 Login</h2>
+
+    <form id="login-form" action="/login" method="POST">
+
+      <div class="login-row">
+        <label for="email">帳號</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          placeholder="請輸入 Email"
+          required
+        >
       </div>
-    </div>
+
+      <div class="login-row">
+        <label for="password">密碼</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password" 
+          placeholder="請輸入密碼"
+          required
+        >
+      </div>
+
+      <button type="submit" class="login-btn">
+        登入
+      </button>
+
+    </form>
+
+    <a href="/signup" class="signup-link">
+      註冊點這
+    </a>
+
+  </div>
+</div>
+
 <%- include('partials/footer') %>
