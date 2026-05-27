@@ -172,6 +172,10 @@ body {
   border-radius: 8px;
   font-size: 28px;
   line-height: 1;
+  display: flex;          /* 新增 */
+  align-items: center;    /* 新增 */
+  justify-content: center; /* 新增 */
+  cursor: pointer;        /* 新增，順便加上手形游標 */
 }
 
 .logout-link {
@@ -180,4 +184,179 @@ body {
   padding: 8px 0;
   color: #dc3545;
   font-weight: 600;
+}
+
+.btn-cancel {
+  background: #d9d9d9;
+  color: #333;
+}
+
+.btn-cancel:hover {
+  background: #c4c4c4;
+}
+
+.btn-confirm:hover {
+  background: #4667d0;
+}
+
+.home-page {
+  padding: 40px 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.home-title {
+  text-align: center;
+  font-size: 34px;
+  font-weight: 800;
+  margin-bottom: 32px;
+}
+
+.home-cards {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.home-section {
+  flex: 1;
+  min-width: 260px;
+  max-width: 380px;
+}
+
+.section-label {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.usage-card {
+  background: white;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 260px;
+}
+
+.machine-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.machine-number {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.machine-badge {
+  background: #dbeafe;
+  color: #3b82f6;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.machine-location {
+  font-size: 13px;
+  color: #999;
+  margin-bottom: 20px;
+}
+
+.btn-cancel-queue {
+  background: #888;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: block;
+  margin: 16px auto 0;
+}
+
+.btn-cancel-queue:hover {
+  background: #666;
+}
+
+.empty-msg {
+  color: #aaa;
+  font-size: 15px;
+  text-align: center;
+  margin-top: 40px;
+  margin-bottom: 60px;
+}
+
+.machine-number {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.machine-location {
+  font-size: 13px;
+  color: #999;
+  margin-bottom: 20px;
+}
+
+.time-label {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 4px;
+}
+
+.time-value {
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.queue-info {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.btn-cancel-queue {
+  background: #d9d9d9;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: block;
+  margin: 0 auto;
+}
+
+.btn-cancel-queue:hover {
+  background: #c4c4c4;
+}
+
+.home-actions {
+  text-align: center;
+  margin-top: 40px;
+}
+
+.btn-status {
+  background: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.btn-status:hover {
+  background: #27ae60;
 }

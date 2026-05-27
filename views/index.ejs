@@ -1,79 +1,106 @@
 <%- include('partials/header') %>
-    <div class="card" id="usage-container" style="width: 18rem;">
+
+<div class="home-page">
+  <h2 class="home-title">您的洗衣行程</h2>
+
+  <div class="home-cards">
+    <!-- 正在使用 -->
+    <div class="home-section">
+      <h4 class="section-label">您正在使用</h4>
+      <div class="usage-card" id="usage-container">
+        <p class="empty-msg">目前無洗衣行程</p>
+      </div>
     </div>
-    <div class="card" id="queue-container" style="width: 18rem;">
+
+    <!-- 排隊中 -->
+    <div class="home-section">
+      <h4 class="section-label">排隊中</h4>
+      <div class="usage-card" id="queue-container">
+        <p class="empty-msg">目前沒有排隊中的機台</p>
+      </div>
     </div>
-    <a href="/machine"><button type="button" class="btn btn-primary">查看機台使用狀態</button></a>
-    
-    <script src="/js/checkLogin.js"></script>
-    <script>
-      const just_reserved_machine_id = '<%= just_reserved_machine_id %>';
+  </div>
 
-      const machine_id = '<%= machine_id %>';
-      async function loadUsage() {
-        if (just_reserved_machine_id) {
-          alert(`開始洗衣行程`);
-        }
-        const response = await fetch('/api/current_usage');
-        const usage = await response.json();
-        const containerUsage = document.getElementById('usage-container');
-        const containerQueue = document.getElementById('queue-container');
+  <div class="home-actions">
+    <a href="/machine">
+      <button type="button" class="btn-status">查看機台使用狀態</button>
+    </a>
+  </div>
+</div>
 
-        if(!usage || usage.machine_id === null) {
-          containerUsage.innerHTML = '<h5>目前無洗衣行程</h5>';
-          return;
-        }
-        startCountDown(new Date(usage.Estimated_End_Time), containerUsage, usage);
-      }
-      async function startCountDown(endsAt, containerUsage, usage) {
-        const interval = setInterval(async() => {
-          const remaining = endsAt - new Date();
-          if (remaining <= 0) {
-            clearInterval(interval);
-            containerUsage.innerHTML = '<h5>目前無洗衣行程</h5>';
-            await fetch(`/api/finished/${usage.Usage_ID}`, {method: 'POST'});
-            alert('洗衣行程結束！');
-            return;
-          }
-          const m = Math.floor(remaining / 60000);
-          const s = Math.floor((remaining % 60000) / 1000);
-          containerUsage.innerHTML = `
-          <h2>您的洗衣行程</h2>
-          <div class="card-body">
-            <h5 class="card-title">正在使用 ${usage.Machine_ID} 號機</h5>
-            <h6 class="card-subtitle">${usage.Dorm} ${usage.Floor}F - ${usage.Laundry_Room}</h6>
-            <p class="card-text">剩餘時間：${m} 分 ${s} 秒</p>
-          </div>
-          `;}, 1000)
-      };
-      async function loadQueue() {
-        const response = await fetch('/api/my_queue');
-        const queue = await response.json();
-        console.log(queue);
-        const containerQueue = document.getElementById('queue-container');
-        if (!queue || queue.length === 0) {
-          containerQueue.innerHTML = '<h5>目前沒有排隊中的機台</h5>';
-          return;
-        }
-        containerQueue.innerHTML = `
-        <h2>您排隊中的機台</h2>
-        <div class="card-body">
-          <h5 class="card-title"> ${queue.Machine_Number} 號機</h5>
-          <p class="card-text"> ${queue.Dorm} ${queue.Floor}F - ${queue.Laundry_Room}</p>
-          <p class="card-text"> 排隊序號：${queue.Reservation_Number}</p>
-          <button class="btn btn-danger" id="cancelBtn" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>
-        </div>
-        `;
-      };
+<script src="/js/checkLogin.js"></script>
+<script>
+const just_reserved_machine_id = '<%= just_reserved_machine_id %>';
+const machine_id = '<%= machine_id %>';
 
-      async function cancelQueue(machine_id) {
-        if (confirm('確定要取消排隊?')) {
-          await fetch(`/api/cancel_queue/${machine_id}`, {method: 'POST'});
-          alert('已取消排隊');
-          loadQueue();
-        }
-      }
-      checkLogin(loadUsage);
-      checkLogin(loadQueue);
-    </script>
+async function loadUsage() {
+  if (just_reserved_machine_id) {
+    alert('開始洗衣行程');
+  }
+  const response = await fetch('/api/current_usage');
+  const usage = await response.json();
+  const containerUsage = document.getElementById('usage-container');
+  if (!usage || usage.machine_id === null) {
+    containerUsage.innerHTML = '<p class="empty-msg">目前無洗衣行程</p>';
+    return;
+  }
+  startCountDown(new Date(usage.Estimated_End_Time), containerUsage, usage);
+}
+
+async function startCountDown(endsAt, containerUsage, usage) {
+  const interval = setInterval(async () => {
+    const remaining = endsAt - new Date();
+    if (remaining <= 0) {
+      clearInterval(interval);
+      containerUsage.innerHTML = '<p class="empty-msg">目前無洗衣行程</p>';
+      await fetch(`/api/finished/${usage.Usage_ID}`, { method: 'POST' });
+      alert('洗衣行程結束！');
+      return;
+    }
+    const m = Math.floor(remaining / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    containerUsage.innerHTML = `
+  <div class="machine-header">
+    <div class="machine-number">${usage.Machine_ID} 號機</div>
+    <span class="machine-badge">使用中</span>
+  </div>
+  <div class="machine-location">${usage.Dorm} ${usage.Floor}F - ${usage.Laundry_Room}</div>
+  <div class="time-label">剩餘時間</div>
+  <div class="time-value">${m} min ${s} sec</div>
+`;
+  }, 1000);
+}
+
+async function loadQueue() {
+  const response = await fetch('/api/my_queue');
+  const queue = await response.json();
+  const containerQueue = document.getElementById('queue-container');
+  if (!queue || queue.length === 0) {
+    containerQueue.innerHTML = '<p class="empty-msg">目前沒有排隊中的機台</p>';
+    return;
+  }
+  containerQueue.innerHTML = `
+  <div class="machine-header">
+    <div class="machine-number">${queue.Machine_Number} 號機</div>
+    <span class="machine-badge">使用中</span>
+  </div>
+  <div class="machine-location">${queue.Dorm} ${queue.Floor}F - ${queue.Laundry_Room}</div>
+  <div class="time-label">排隊序號</div>
+  <div class="time-value">${queue.Reservation_Number}</div>
+  <button class="btn-cancel-queue" onclick="cancelQueue(${queue.Machine_ID})">取消預約</button>
+`;
+}
+
+async function cancelQueue(machine_id) {
+  if (confirm('確定要取消排隊?')) {
+    await fetch(`/api/cancel_queue/${machine_id}`, { method: 'POST' });
+    alert('已取消排隊');
+    loadQueue();
+  }
+}
+
+checkLogin(loadUsage);
+checkLogin(loadQueue);
+</script>
+
 <%- include('partials/footer') %>
