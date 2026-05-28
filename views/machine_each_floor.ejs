@@ -15,7 +15,7 @@
         const usageResponse = await fetch('/api/current_usage');
         const currentUsage = await usageResponse.json();
         console.log('Current Usage:', currentUsage);
-        const isInUse = currentUsage !== null;
+        const isInUse =  currentUsage && currentUsage.Floor === currentFloor && currentUsage.Usage_Status === 'in_use';
         const floorStatus = {};
         floorMachineStatus.forEach(mStatus => {
             
@@ -41,7 +41,7 @@
                     machineBtn = `<button disabled>洗衣中</button>`;
                 }
                 else if (m.Waiting_Queue_Count == 0 && m.in_use === 'idle' && m.Machine_Status === '正常') {
-                    machineBtn = `<button id="scan-btn-${m.Machine_ID}" onclick="location.href='/scan_qr?machine_id=${m.Machine_ID}'">掃碼使用</button>`
+                    machineBtn = <button id="scan-btn-${m.Machine_ID}" onclick="location.href='/scan_qr?machine_id=${m.Machine_ID}'">掃碼使用</button>
                 }
                 else {
                     machineBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})">我要排隊</button>`;
@@ -52,18 +52,22 @@
                     machineStatusText = m.Machine_Status;
                 }
 
-                // let remainingTimeText = '';
-                // if (currentUsage.Remaining_Time) {
-                //     const m = Math.floor(currentUsage.Remaining_Time / 60000);
-                //     const s = Math.floor((currentUsage.Remaining_Time % 60000) / 1000);
-                //     remainingTimeText = `${m} 分 ${s} 秒`;
-                // }
-                // else {
-                //     remainingTimeText = '此機台目前無人使用';
-                // }
+                let remainingTimeText = '';
+                if (m.in_use === 'busy' && m.Estimated_End_Time) {
+                    const remaining = new Date(m.Estimated_End_Time) - new Date();
+                    if (remaining > 0) {
+                        const mins = Math.floor(remaining / 60000);
+                        const secs = Math.floor((remaining % 60000) / 1000);
+                        remainingTimeText = `${mins} 分 ${secs} 秒`;
+                    } else {
+                        remainingTimeText = '即將完成';
+                    }
+                } else {
+                    remainingTimeText = '目前無人使用';
+                }
                 card.innerHTML = `<p> ${m.Machine_Number} 號機</p>
                             <p>${machineStatusText}</p>
-                            // <p>剩餘時間： No No 還沒做好^^</p>
+                            <p>剩餘時間： ${remainingTimeText}</p>
                             <p>排隊人數： ${m.Waiting_Queue_Count} </p>
                             ${machineBtn}`;
                             container.appendChild(card);
@@ -74,26 +78,27 @@
     async function joinQueue(machine_id) {
         const btn = document.getElementById(`queue-btn-${machine_id}`);
         btn.disabled = true;
-        btn.textContent= "處理中...";
+        btn.textContent = "處理中...";
 
-        const respose = await fetch(`/api/queue/${machine_id}`, {
+        const response = await fetch(`/api/queue/${machine_id}`, {
             method: 'POST'
         });
-        if (respose.ok) {
-            alert('排隊成功');
+        const data = await response.json();
+
+        if (response.ok) {
+            alert(data.message); // 只顯示一次 "成功加入排隊"
             btn.textContent = "已登記排隊";
             const card = document.getElementById('back-to-index-card');
             const backBtn = document.createElement('button');
             backBtn.textContent = "回到首頁";
-            backBtn.onclick = () =>window.location.href = '/';
+            backBtn.onclick = () => window.location.href = '/';
             card.appendChild(backBtn);
-        }
-        else {
-            alert('排隊失敗');
+        } else {
+            alert(data.message); // 只顯示一次 "你已經在排隊中" 等錯誤原因
             btn.disabled = false;
             btn.textContent = "我要排隊";
         }
-    };
+    }
     
     async function scanQR(machine_id) {
         const btn = document.getElementById(`scan-btn-${machine_id}`);
@@ -137,5 +142,6 @@
     checkLogin();
     FloorMachineStatus();
     floorBtn();
+    setInterval(FloorMachineStatus, 5000); // 每 5 秒更新剩餘時間
 </script>
 <%- include('partials/footer') %>
