@@ -422,35 +422,39 @@ app.get('/forgot-password', (req, res) => {
 
 app.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
-  const [rows] = await mysqlConnectionPool.query(
-    'SELECT User_ID FROM User WHERE Email = ?', [email]
-  );
-
-  if (rows.length > 0) {
-    const user_id = rows[0].User_ID;
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires_at = new Date(Date.now() + 60 * 60 * 1000);
-
-    await mysqlConnectionPool.query(
-      'DELETE FROM password_reset_tokens WHERE User_ID = ?', [user_id]
-    );
-    await mysqlConnectionPool.query(
-      'INSERT INTO password_reset_tokens (User_ID, token, expires_at) VALUES (?, ?, ?)',
-      [user_id, token, expires_at]
+  try {
+    const [rows] = await mysqlConnectionPool.query(
+      'SELECT User_ID FROM User WHERE Email = ?', [email]
     );
 
-    const resetUrl = `http://localhost:3000/reset-password/${token}`;
-    await transporter.sendMail({
-      from: `"洗衣系統" <${process.env.MAIL_USER}>`,
-      to: email,
-      subject: '密碼重設連結',
-      html: `
-        <p>你好，</p>
-        <p>請點擊以下連結重設密碼（連結 1 小時內有效）：</p>
-        <a href="${resetUrl}">${resetUrl}</a>
-        <p>如果你沒有申請重設密碼，請忽略此信。</p>
-      `,
-    });
+    if (rows.length > 0) {
+      const user_id = rows[0].User_ID;
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires_at = new Date(Date.now() + 60 * 60 * 1000);
+
+      await mysqlConnectionPool.query(
+        'DELETE FROM password_reset_tokens WHERE User_ID = ?', [user_id]
+      );
+      await mysqlConnectionPool.query(
+        'INSERT INTO password_reset_tokens (User_ID, token, expires_at) VALUES (?, ?, ?)',
+        [user_id, token, expires_at]
+      );
+
+      const resetUrl = `http://localhost:3000/reset-password/${token}`;
+      await transporter.sendMail({
+        from: `"洗衣系統" <${process.env.MAIL_USER}>`,
+        to: email,
+        subject: '密碼重設連結',
+        html: `
+          <p>你好，</p>
+          <p>請點擊以下連結重設密碼（連結 1 小時內有效）：</p>
+          <a href="${resetUrl}">${resetUrl}</a>
+          <p>如果你沒有申請重設密碼，請忽略此信。</p>
+        `,
+      });
+    }
+  } catch (err) {
+    console.error('[forgot-password error]', err);
   }
 
   return res.redirect('/forgot-password?sent=1');

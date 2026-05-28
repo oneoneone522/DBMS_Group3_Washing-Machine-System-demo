@@ -6,7 +6,7 @@
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node JS_PROJECT/test.js"
+    "dev": "node app.js"
   },
   "keywords": [],
   "author": "",
