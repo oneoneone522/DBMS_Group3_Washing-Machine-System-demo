@@ -324,7 +324,7 @@ app.post("/signup", async (req, res) => {
   const password = req.body["password"];
 
   await mysqlConnectionPool.query(
-    "INSERT INTO User (Dorm, User_Name, Student_ID, User_Email, Password) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO User (Dorm, User_Name, Student_ID, Email, Password) VALUES (?, ?, ?, ?, ?)",
     [dorm, user_name, student_id, email, password]
   );
   res.redirect('/login');  
@@ -340,7 +340,7 @@ app.post('/login', async (req, res) => {
   const password = req.body["password"];
 
   const result = await mysqlConnectionPool.query(
-    "SELECT User_ID FROM User WHERE User_Email = ? AND Password = ?",
+    "SELECT User_ID FROM User WHERE Email = ? AND Password = ?",
     [email, password]
   );
   const rows = result[0];
