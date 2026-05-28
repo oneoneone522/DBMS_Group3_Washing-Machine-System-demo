@@ -1,79 +1,62 @@
 <%- include('partials/header') %>
-    <div class="card" style="width: 18rem;">
+    <div class="card" style="width: 22rem;">
       <div class="card-body">
         <h5 class="card-title">註冊</h5>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="alert alert-danger py-2" role="alert"><%= error %></div>
+        <% } %>
+
         <form id="signup-form" action="/signup" method="POST">
             <div class="mb-3">
                 <label for="dorm" class="form-label">宿舍</label>
-                <select class="form-select" id="dorm" name="dorm">
+                <select class="form-select" id="dorm" name="dorm" required>
                     <option value="">請選擇宿舍</option>
-                    <!-- 由 JavaScript 動態填入 -->
                 </select>
             </div>
             <div class="mb-3">
                 <label for="user_name" class="form-label">姓名</label>
-                <input class="form-control" type="text" id="user_name" name="user_name" placeholder="請輸入姓名">
+                <input class="form-control" type="text" id="user_name" name="user_name" placeholder="請輸入姓名" required>
             </div>
             <div class="mb-3">
                 <label for="student_id" class="form-label">學號</label>
-                <input class="form-control" type="text" id="student_id" name="student_id" placeholder="請輸入學號">
+                <input class="form-control" type="text" id="student_id" name="student_id" placeholder="請輸入學號" required>
             </div>
             <div class="mb-3">
-                <label for="email" class="form-label">Email address</label>
-                <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com">
+                <label for="room_number" class="form-label">房號</label>
+                <input class="form-control" type="text" id="room_number" name="room_number" placeholder="請輸入房號（如 301）" required>
             </div>
             <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input class="form-control" type="password" id="password" name="password" placeholder="Password" aria-label="Password input example">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com" required>
             </div>
-            <button type="submit" class="btn btn-primary">註冊</button>
-            <p id="signup-msg"></p>
+            <div class="mb-3">
+                <label for="password" class="form-label">密碼</label>
+                <input class="form-control" type="password" id="password" name="password" placeholder="請輸入密碼" minlength="6" required>
             </div>
+            <div class="mb-3">
+                <label for="confirm_password" class="form-label">確認密碼</label>
+                <input class="form-control" type="password" id="confirm_password" name="confirm_password" placeholder="再輸入一次密碼" minlength="6" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">註冊</button>
+            <hr>
+            <p class="text-center text-muted small mb-0">已有帳號？<a href="/login">登入</a></p>
         </form>
+      </div>
     </div>
-        
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
 
     <script>
         async function loadDorms() {
             const response = await fetch('/api/dorm');
             const dorms = await response.json();
-
             const select = document.getElementById('dorm');
             dorms.forEach(dorm => {
-            const option = document.createElement('option');
-            option.textContent = dorm.DORM_NAME;
-            select.appendChild(option);
+                const option = document.createElement('option');
+                option.value = dorm.DORM_NAME;
+                option.textContent = dorm.DORM_NAME;
+                select.appendChild(option);
             });
         }
-
         loadDorms();
     </script>
-    <!-- <script>
-        document.getElementById('signup-form').addEventListener('submit', async function(e) {
-            e.preventDefault();  // 防止頁面重新整理
-
-            const body = {
-            dorm:       document.getElementById('dorm').value,
-            user_name:  document.getElementById('user_name').value,
-            student_id: document.getElementById('student_id').value,
-            email:      document.getElementById('email').value,
-            password:   document.getElementById('password').value,
-            };
-
-            const response = await fetch('/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-            document.getElementById('signup-msg').textContent = '註冊成功！';
-            } else {
-            document.getElementById('signup-msg').textContent = '註冊失敗，請再試一次。';
-            }
-        });
-        </script> -->
 <%- include('partials/footer') %>
