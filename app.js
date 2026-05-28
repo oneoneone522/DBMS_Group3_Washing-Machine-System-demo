@@ -118,13 +118,17 @@ app.get('/api/machine/my-dorm', async (req, res) => {
   }
   const userDorm = userRows[0].Dorm;
   const [rows] = await mysqlConnectionPool.query(`
-    SELECT 
-      m.Machine_Number, 
-      m.Floor, 
+    SELECT
+      m.Machine_Number,
+      m.Floor,
       m.Dorm,
-      m.in_use
+      CASE WHEN ur.Usage_ID IS NULL THEN 'idle' ELSE 'busy' END AS in_use
     FROM Machine m
-    WHERE m.Dorm = ?;`,[userDorm]
+    LEFT JOIN usage_record ur
+      ON m.Machine_ID = ur.Machine_ID AND ur.Usage_Status = 'in_use'
+    WHERE m.Dorm = ?
+    AND m.Machine_Status != '故障'
+  `,[userDorm]
   );
   return res.status(200).json(rows);
 });
@@ -297,7 +301,7 @@ app.get('/use_machine/:machine_id', async (req, res) => {
                     AND Machine_ID = ? 
                     AND Reservation_Status = 'waiting' 
                     ORDER BY Reservation_Number LIMIT 1),
-                    DATE_ADD(NOW(), INTERVAL 2 MINUTE),
+                    DATE_ADD(NOW(), INTERVAL 30 MINUTE),
               'in_use')`,[user_id, machine_id, user_id, machine_id]
     );
     await mysqlConnectionPool.query(
@@ -700,7 +704,51 @@ app.get('/api/notifications', async (req, res) => {
       }
     }
 
-    // 3. 過號判定：排到 #0 但超過 5 分鐘未掃碼 → 扣點並取消
+    // 3. 洗衣結束前 10 分鐘寄送 Email 提醒
+    const [emailRows] = await mysqlConnectionPool.query(`
+      SELECT ur.Usage_ID, u.Email, u.User_Name,
+             m.Machine_Number, m.Dorm, m.Floor, m.Laundry_Room,
+             ur.Estimated_End_Time
+      FROM usage_record ur
+      JOIN User u  ON ur.User_ID  = u.User_ID
+      JOIN Machine m ON ur.Machine_ID = m.Machine_ID
+      WHERE ur.User_ID = ?
+        AND ur.Usage_Status = 'in_use'
+        AND TIMESTAMPDIFF(MINUTE, NOW(), ur.Estimated_End_Time) BETWEEN 9 AND 11
+    `, [user_id]);
+
+    for (const row of emailRows) {
+      const [already] = await mysqlConnectionPool.query(`
+        SELECT Notification_ID FROM notifications
+        WHERE User_ID = ? AND Usage_ID = ? AND Notification_Type = '洗衣結束前10分鐘提醒'
+      `, [user_id, row.Usage_ID]);
+
+      if (already.length === 0) {
+        // 寫入通知紀錄（避免重複寄）
+        await mysqlConnectionPool.query(`
+          INSERT INTO notifications (User_ID, Queue_ID, Usage_ID, Notification_Type, Notification_Time)
+          VALUES (?, NULL, ?, '洗衣結束前10分鐘提醒', NOW())
+        `, [user_id, row.Usage_ID]);
+
+        // 寄 Email
+        const endTime = new Date(row.Estimated_End_Time).toLocaleString('zh-TW');
+        await transporter.sendMail({
+          from: `"洗衣系統" <${process.env.MAIL_USER}>`,
+          to: row.Email,
+          subject: '【洗衣提醒】您的洗衣即將結束',
+          html: `
+            <p>您好，${row.User_Name}，</p>
+            <p>您在 <strong>${row.Dorm} ${row.Floor}F・${row.Laundry_Room}・${row.Machine_Number} 號機</strong>
+               的洗衣程序將於 <strong>${endTime}</strong> 結束（約剩 10 分鐘）。</p>
+            <p>請記得及時取回衣物，以免影響其他同學使用。</p>
+            <br>
+            <p style="color:#888;font-size:12px;">— 宿舍洗衣機管理系統</p>
+          `,
+        }).catch(err => console.error('[email 寄送失敗]', err.message));
+      }
+    }
+
+    // 4. 過號判定：排到 #0 但超過 5 分鐘未掃碼 → 扣點並取消
     const [overdueQueues] = await mysqlConnectionPool.query(`
       SELECT qr.Queue_ID, qr.User_ID, qr.Machine_ID
       FROM queue_record qr
