@@ -6,7 +6,6 @@ import mysqlConnectionPool from "./lib/mysql.js";
 import session from 'express-session';
 import multer from 'multer';
 import path from 'path';
-import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
@@ -219,7 +218,8 @@ app.get('/api/my_queue', async (req, res) => {
   }
   const user_id = req.session.user_id;
   const [rows] = await mysqlConnectionPool.query(
-    `SELECT qr.Machine_ID, qr.Reservation_Number, qr.Reservation_Status, m.Machine_Number, m.Floor, m.Dorm, m.Laundry_Room
+    `SELECT qr.Machine_ID, qr.Reservation_Number, qr.Reservation_Status, qr.Turn_Start_Time,
+            m.Machine_Number, m.Floor, m.Dorm, m.Laundry_Room
     FROM queue_record qr
     LEFT JOIN Machine m ON qr.Machine_ID = m.Machine_ID
     WHERE qr.User_ID = ? AND qr.Reservation_Status = 'waiting'`, [user_id]
@@ -341,6 +341,13 @@ app.post('/api/finished/:usage_id', async (req, res) => {
           SET Reservation_Number = Reservation_Number - 1
           WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number > 0`, [machine_id]
         );
+        // 設定新一位排隊者的「輪到你」計時起點（過號判定用）
+        await mysqlConnectionPool.query(
+          `UPDATE queue_record
+           SET Turn_Start_Time = NOW()
+           WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number = 0`,
+          [machine_id]
+        );
         return res.status(200).json({message: "洗衣完成！"});
   }
   catch (error) {
@@ -378,10 +385,9 @@ app.post("/signup", async (req, res) => {
   }
 
   try {
-    const hashed = await bcrypt.hash(password, 10);
     await mysqlConnectionPool.query(
       "INSERT INTO User (Dorm, User_Name, Student_ID, Room_Number, Email, Password) VALUES (?, ?, ?, ?, ?, ?)",
-      [dorm, user_name, student_id, room_number, email, hashed]
+      [dorm, user_name, student_id, room_number, email, password]
     );
     res.redirect('/login');
   } catch (err) {
@@ -407,7 +413,7 @@ app.post('/login', async (req, res) => {
     [email]
   );
 
-  if (rows.length === 0 || !(await bcrypt.compare(password, rows[0].Password))) {
+  if (rows.length === 0 || rows[0].Password !== password) {
     return res.render('login', { title: '登入', error: '帳號或密碼錯誤', reset: false });
   }
   req.session.user_id = rows[0].User_ID;
@@ -487,8 +493,7 @@ app.post('/reset-password/:token', async (req, res) => {
     return res.render('reset_password', { title: '重設密碼', token, valid: true, error: '兩次密碼輸入不一致' });
   }
 
-  const hashed = await bcrypt.hash(password, 10);
-  await mysqlConnectionPool.query('UPDATE User SET Password = ? WHERE User_ID = ?', [hashed, rows[0].User_ID]);
+  await mysqlConnectionPool.query('UPDATE User SET Password = ? WHERE User_ID = ?', [password, rows[0].User_ID]);
   await mysqlConnectionPool.query('UPDATE password_reset_tokens SET used = TRUE WHERE token = ?', [token]);
 
   return res.redirect('/login?reset=1');
@@ -693,7 +698,51 @@ app.get('/api/notifications', async (req, res) => {
       }
     }
 
-    // 3. 回傳目前登入者的通知紀錄
+    // 3. 過號判定：排到 #0 但超過 5 分鐘未掃碼 → 扣點並取消
+    const [overdueQueues] = await mysqlConnectionPool.query(`
+      SELECT qr.Queue_ID, qr.User_ID, qr.Machine_ID
+      FROM queue_record qr
+      WHERE qr.Reservation_Status = 'waiting'
+        AND qr.Reservation_Number = 0
+        AND qr.Turn_Start_Time IS NOT NULL
+        AND TIMESTAMPDIFF(MINUTE, qr.Turn_Start_Time, NOW()) >= 5
+    `);
+
+    for (const queue of overdueQueues) {
+      // 標記為過號
+      await mysqlConnectionPool.query(
+        `UPDATE queue_record SET Reservation_Status = 'missed' WHERE Queue_ID = ?`,
+        [queue.Queue_ID]
+      );
+      // 其餘排隊者號碼遞減
+      await mysqlConnectionPool.query(
+        `UPDATE queue_record
+         SET Reservation_Number = Reservation_Number - 1
+         WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number > 0`,
+        [queue.Machine_ID]
+      );
+      // 設定新一位的計時
+      await mysqlConnectionPool.query(
+        `UPDATE queue_record
+         SET Turn_Start_Time = NOW()
+         WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number = 0`,
+        [queue.Machine_ID]
+      );
+      // 寫入違規紀錄（扣 1 點）
+      await mysqlConnectionPool.query(
+        `INSERT INTO Penalty (User_ID, Penalty_Type, Point, Created_At)
+         VALUES (?, '過號未使用', 1, NOW())`,
+        [queue.User_ID]
+      );
+      // 寫入通知讓該使用者知道自己被過號
+      await mysqlConnectionPool.query(
+        `INSERT INTO notifications (User_ID, Queue_ID, Usage_ID, Notification_Type, Notification_Time)
+         VALUES (?, ?, NULL, '您已過號，已扣除 1 點', NOW())`,
+        [queue.User_ID, queue.Queue_ID]
+      );
+    }
+
+    // 4. 回傳目前登入者的通知紀錄
     const [notifications] = await mysqlConnectionPool.query(`
       SELECT Notification_ID, User_ID, Queue_ID, Usage_ID, Notification_Type, Notification_Time
       FROM notifications
