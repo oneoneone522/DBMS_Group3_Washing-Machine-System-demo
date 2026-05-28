@@ -1,9 +1,22 @@
 // app.js
+import * as dotenv from 'dotenv';
+dotenv.config();
 import express from "express";
 import mysqlConnectionPool from "./lib/mysql.js";
 import session from 'express-session';
 import multer from 'multer';
 import path from 'path';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
+  },
+});
 const app = express();
 
 const storage = multer.diskStorage({
@@ -32,7 +45,7 @@ app.use((req, res, next) => {
 });
 
 app.use(session({
-  secret: 'abc123',  
+  secret: process.env.SESSION_SECRET,  
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false }   // 本地開發用 false，上線再改 true
@@ -343,43 +356,142 @@ app.get('/signup',(req,res) => {
 });
 
 app.get('/api/dorm', async (req, res) => {
-  const [rows] = await mysqlConnectionPool.query('SELECT DORM_NAME FROM DORM');
-  return res.status(200).json(rows);
+  try {
+    const [rows] = await mysqlConnectionPool.query('SELECT DORM_NAME FROM DORM');
+    if (rows.length > 0) {
+      return res.status(200).json(rows);
+    }
+    // DORM table 是空的，改從 User table 抓現有宿舍
+    const [userRows] = await mysqlConnectionPool.query('SELECT DISTINCT Dorm AS DORM_NAME FROM User ORDER BY Dorm');
+    return res.status(200).json(userRows);
+  } catch (err) {
+    // DORM table 不存在，從 User table 抓
+    const [userRows] = await mysqlConnectionPool.query('SELECT DISTINCT Dorm AS DORM_NAME FROM User ORDER BY Dorm');
+    return res.status(200).json(userRows);
+  }
 });
 app.post("/signup", async (req, res) => {
-  const { dorm, user_name, student_id, email, password } = req.body;
-  // const dorm = req.body["dorm"];
-  // const user_name = req.body["user_name"];
-  // const student_id = req.body["student_id"];
-  // const email = req.body["email"];
-  // const password = req.body["password"];
+  const { dorm, user_name, student_id, room_number, email, password, confirm_password } = req.body;
 
-  await mysqlConnectionPool.query(
-    "INSERT INTO User (Dorm, User_Name, Student_ID, User_Email, Password) VALUES (?, ?, ?, ?, ?)",
-    [dorm, user_name, student_id, email, password]
-  );
-  res.redirect('/login');  
+  if (password !== confirm_password) {
+    return res.render('signup', { title: '註冊', error: '兩次密碼輸入不一致' });
+  }
+
+  try {
+    const hashed = await bcrypt.hash(password, 10);
+    await mysqlConnectionPool.query(
+      "INSERT INTO User (Dorm, User_Name, Student_ID, Room_Number, Email, Password) VALUES (?, ?, ?, ?, ?, ?)",
+      [dorm, user_name, student_id, room_number, email, hashed]
+    );
+    res.redirect('/login');
+  } catch (err) {
+    console.error('[signup error]', err.code, err.message);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.render('signup', { title: '註冊', error: '此 Email 或學號已被註冊過' });
+    }
+    return res.render('signup', { title: '註冊', error: '註冊失敗，請稍後再試' });
+  }
 });
 
 //login
 app.get('/login', (req, res) => {
-  res.render('login', {title: '登入'});
+  const reset = req.query.reset === '1';
+  res.render('login', { title: '登入', error: null, reset });
 });
 
 app.post('/login', async (req, res) => {
 
-  const {email, password} = req.body;
-  const result = await mysqlConnectionPool.query(
-    "SELECT User_ID FROM User WHERE Email = ? AND Password = ?",
-    [email, password]
+  const { email, password } = req.body;
+  const [rows] = await mysqlConnectionPool.query(
+    "SELECT User_ID, Password FROM User WHERE Email = ?",
+    [email]
   );
-  const rows = result[0];
+
+  if (rows.length === 0 || !(await bcrypt.compare(password, rows[0].Password))) {
+    return res.render('login', { title: '登入', error: '帳號或密碼錯誤', reset: false });
+  }
+  req.session.user_id = rows[0].User_ID;
+  res.redirect('/');
+});
+
+//forgot password
+app.get('/forgot-password', (req, res) => {
+  const sent = req.query.sent === '1';
+  res.render('forgot_password', { title: '忘記密碼', sent });
+});
+
+app.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const [rows] = await mysqlConnectionPool.query(
+      'SELECT User_ID FROM User WHERE Email = ?', [email]
+    );
+
+    if (rows.length > 0) {
+      const user_id = rows[0].User_ID;
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires_at = new Date(Date.now() + 60 * 60 * 1000);
+
+      await mysqlConnectionPool.query(
+        'DELETE FROM password_reset_tokens WHERE User_ID = ?', [user_id]
+      );
+      await mysqlConnectionPool.query(
+        'INSERT INTO password_reset_tokens (User_ID, token, expires_at) VALUES (?, ?, ?)',
+        [user_id, token, expires_at]
+      );
+
+      const resetUrl = `http://localhost:3000/reset-password/${token}`;
+      await transporter.sendMail({
+        from: `"洗衣系統" <${process.env.MAIL_USER}>`,
+        to: email,
+        subject: '密碼重設連結',
+        html: `
+          <p>你好，</p>
+          <p>請點擊以下連結重設密碼（連結 1 小時內有效）：</p>
+          <a href="${resetUrl}">${resetUrl}</a>
+          <p>如果你沒有申請重設密碼，請忽略此信。</p>
+        `,
+      });
+    }
+  } catch (err) {
+    console.error('[forgot-password error]', err);
+  }
+
+  return res.redirect('/forgot-password?sent=1');
+});
+
+//reset password
+app.get('/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+  const [rows] = await mysqlConnectionPool.query(
+    'SELECT * FROM password_reset_tokens WHERE token = ? AND expires_at > NOW() AND used = FALSE',
+    [token]
+  );
+  const valid = rows.length > 0;
+  res.render('reset_password', { title: '重設密碼', token, valid, error: null });
+});
+
+app.post('/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+  const { password, confirm_password } = req.body;
+
+  const [rows] = await mysqlConnectionPool.query(
+    'SELECT * FROM password_reset_tokens WHERE token = ? AND expires_at > NOW() AND used = FALSE',
+    [token]
+  );
 
   if (rows.length === 0) {
-    return res.status(401).json({ message: "Invalid email or password" });
+    return res.render('reset_password', { title: '重設密碼', token, valid: false, error: null });
   }
-  req.session.user_id = rows[0].User_ID;  // ← 把 User_ID 存進 session
-  res.redirect('/'); 
+  if (password !== confirm_password) {
+    return res.render('reset_password', { title: '重設密碼', token, valid: true, error: '兩次密碼輸入不一致' });
+  }
+
+  const hashed = await bcrypt.hash(password, 10);
+  await mysqlConnectionPool.query('UPDATE User SET Password = ? WHERE User_ID = ?', [hashed, rows[0].User_ID]);
+  await mysqlConnectionPool.query('UPDATE password_reset_tokens SET used = TRUE WHERE token = ?', [token]);
+
+  return res.redirect('/login?reset=1');
 });
 
 //log out

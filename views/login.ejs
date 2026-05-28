@@ -6,6 +6,13 @@
 
     <h2 class="login-title">系統登入 Login</h2>
 
+    <% if (typeof reset !== 'undefined' && reset) { %>
+      <div class="alert alert-success py-2 mb-3" role="alert">密碼已重設，請重新登入</div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert-danger py-2 mb-3" role="alert"><%= error %></div>
+    <% } %>
+
     <form id="login-form" action="/login" method="POST">
 
       <div class="login-row">
@@ -33,6 +40,10 @@
       <button type="submit" class="login-btn">
         登入
       </button>
+
+      <div style="text-align: right; margin-top: 8px;">
+        <a href="/forgot-password" style="font-size: 0.85rem; color: #888;">忘記密碼？</a>
+      </div>
 
     </form>
 
