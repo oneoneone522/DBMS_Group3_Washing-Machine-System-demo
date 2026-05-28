@@ -24,10 +24,9 @@
 
         <!-- 通知鈴鐺 -->
         <div class="position-relative">
-          <button class="btn btn-outline-secondary" type="button" id="notificationBell">
+          <button class="btn btn-outline-secondary notification-btn" type="button" id="notificationBell">
             🔔
-            <span id="notificationBadge"
-              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+            <span id="notificationBadge" class="notification-badge d-none">
               0
             </span>
           </button>
@@ -62,12 +61,6 @@
 
     <div class="offcanvas-body">
       <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link" href="/">首頁</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/machine">機台使用狀態</a>
-        </li>
         <li class="nav-item">
           <a class="nav-link" href="/penalty">違規紀錄</a>
         </li>
