@@ -383,24 +383,124 @@ app.get('/api/dorm', async (req, res) => {
   }
 });
 app.post("/signup", async (req, res) => {
-  const { dorm, user_name, student_id, room_number, email, password, confirm_password } = req.body;
+  let { dorm, user_name, student_id, room_number, email, password, confirm_password } = req.body;
+
+  email = email.trim().toLowerCase();
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(email)) {
+    return res.render('signup', {
+      title: '註冊',
+      error: 'Email 格式不正確，請重新輸入'
+    });
+  }
 
   if (password !== confirm_password) {
-    return res.render('signup', { title: '註冊', error: '兩次密碼輸入不一致' });
+    return res.render('signup', {
+      title: '註冊',
+      error: '兩次密碼輸入不一致'
+    });
   }
 
   try {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires_at = new Date(Date.now() + 60 * 60 * 1000); // 1 小時後過期
+
     await mysqlConnectionPool.query(
-      "INSERT INTO User (Dorm, User_Name, Student_ID, Room_Number, Email, Password) VALUES (?, ?, ?, ?, ?, ?)",
-      [dorm, user_name, student_id, room_number, email, password]
+      `INSERT INTO User 
+       (Dorm, User_Name, Student_ID, Room_Number, Email, Password, Email_Verified, Email_Verification_Token, Email_Verification_Expires) 
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      [dorm, user_name, student_id, room_number, email, password, token, expires_at]
     );
-    res.redirect('/login');
+
+    const verifyUrl = `http://localhost:3000/verify-email/${token}`;
+
+    await transporter.sendMail({
+      from: `"洗衣系統" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: '請驗證您的洗衣系統帳號',
+      html: `
+        <p>您好，${user_name}：</p>
+        <p>感謝您註冊宿舍洗衣機預約系統。</p>
+        <p>請點擊以下連結完成 Email 驗證：</p>
+        <a href="${verifyUrl}">${verifyUrl}</a>
+        <p>此連結將於 1 小時後失效。</p>
+        <br>
+        <p style="color:#888;font-size:12px;">— 宿舍洗衣機管理系統</p>
+      `,
+    });
+
+    return res.render('signup', {
+      title: '註冊',
+      success: '註冊成功！請到信箱收取驗證信，完成驗證後才能登入。'
+    });
+
   } catch (err) {
     console.error('[signup error]', err.code, err.message);
+
     if (err.code === 'ER_DUP_ENTRY') {
-      return res.render('signup', { title: '註冊', error: '此 Email 或學號已被註冊過' });
+      return res.render('signup', {
+        title: '註冊',
+        error: '此 Email 或學號已被註冊過'
+      });
     }
-    return res.render('signup', { title: '註冊', error: '註冊失敗，請稍後再試' });
+
+    return res.render('signup', {
+      title: '註冊',
+      error: '註冊失敗，請稍後再試'
+    });
+  }
+});
+
+app.get('/verify-email/:token', async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const [rows] = await mysqlConnectionPool.query(
+      `SELECT User_ID 
+       FROM User 
+       WHERE Email_Verification_Token = ?
+         AND Email_Verification_Expires > NOW()
+         AND Email_Verified = 0`,
+      [token]
+    );
+
+    if (rows.length === 0) {
+      return res.send(`
+        <script>
+          alert('驗證連結無效或已過期，請重新註冊或重新申請驗證信');
+          location.href = '/login';
+        </script>
+      `);
+    }
+
+    const user_id = rows[0].User_ID;
+
+    await mysqlConnectionPool.query(
+      `UPDATE User 
+       SET Email_Verified = 1,
+           Email_Verification_Token = NULL,
+           Email_Verification_Expires = NULL
+       WHERE User_ID = ?`,
+      [user_id]
+    );
+
+    return res.send(`
+      <script>
+        alert('Email 驗證成功，請登入');
+        location.href = '/login';
+      </script>
+    `);
+
+  } catch (err) {
+    console.error('[verify-email error]', err);
+    return res.send(`
+      <script>
+        alert('驗證失敗，請稍後再試');
+        location.href = '/login';
+      </script>
+    `);
   }
 });
 
@@ -411,16 +511,31 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
+  let { email, password } = req.body;
 
-  const { email, password } = req.body;
+  email = email.trim().toLowerCase();
+
   const [rows] = await mysqlConnectionPool.query(
-    "SELECT User_ID, Password FROM User WHERE Email = ?",
+    "SELECT User_ID, Password, Email_Verified FROM User WHERE Email = ?",
     [email]
   );
 
   if (rows.length === 0 || rows[0].Password !== password) {
-    return res.render('login', { title: '登入', error: '帳號或密碼錯誤', reset: false });
+    return res.render('login', {
+      title: '登入',
+      error: '帳號或密碼錯誤',
+      reset: false
+    });
   }
+
+  if (rows[0].Email_Verified !== 1) {
+    return res.render('login', {
+      title: '登入',
+      error: '請先到信箱點擊驗證連結，完成 Email 驗證後才能登入',
+      reset: false
+    });
+  }
+
   req.session.user_id = rows[0].User_ID;
   res.redirect('/');
 });
