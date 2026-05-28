@@ -12,141 +12,142 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
-<nav class="navbar bg-body-tertiary fixed-top shadow-sm" style="z-index: 9999;">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="/">
-        <%= locals.user_name ? user_name : '回首頁' %>
-      </a>
-      <div class="d-flex align-items-center gap-2 ms-auto">
+<nav class="navbar app-navbar fixed-top shadow-sm" style="z-index: 9999;">
+  <div class="container-fluid">
+    <a class="navbar-brand app-brand" href="/">
+      <img src="/image/NCCU_logo.png" class="brand-logo" alt="NCCU Logo">
+      <span>政大住宿生洗衣排隊管理系統</span>
+    </a>
+    <div class="d-flex align-items-center gap-2 ms-auto">
 
-  <div class="position-relative">
-    <button class="btn btn-outline-secondary" type="button" id="notificationBell">
-      🔔
-      <span id="notificationBadge"
-        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
-        0
-      </span>
-    </button>
+      <div class="position-relative">
+        <button class="btn btn-outline-secondary" type="button" id="notificationBell">
+          🔔
+          <span id="notificationBadge"
+            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+            0
+          </span>
+        </button>
 
-    <div id="notificationBox"
-      class="card shadow position-absolute end-0 mt-2 d-none"
-      style="width: 320px; z-index: 10000;">
-      <div class="card-header fw-bold">通知紀錄</div>
-      <div class="card-body p-2" id="notificationList" style="max-height: 300px; overflow-y: auto;">
-        <p class="text-muted mb-0">目前沒有通知</p>
-      </div>
-    </div>
-  </div>
-
-  <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas"
-    data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar" aria-label="Toggle navigation">
-    <span class="navbar-toggler-icon"></span>
-  </button>
-
-</div>
-      <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
-        
-        <div class="offcanvas-header">
-          <h5 class="offcanvas-title" id="offcanvasNavbarLabel">Offcanvas</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <div id="notificationBox" class="card shadow position-absolute end-0 mt-2 d-none"
+          style="width: 320px; z-index: 10000;">
+          <div class="card-header fw-bold">通知紀錄</div>
+          <div class="card-body p-2" id="notificationList" style="max-height: 300px; overflow-y: auto;">
+            <p class="text-muted mb-0">目前沒有通知</p>
+          </div>
         </div>
-        <div class="offcanvas-body">
-          <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
-            <li class="nav-item">
-              <a class="nav-link active" aria-current="page" href="#">Home</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/penalty">違規紀錄</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/maintenance">設備報修</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link">
-                
-                <a type="button"  data-bs-toggle="modal" data-bs-target="#staticBackdrop">
-                  登出
-                </a>
+      </div>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar"
+        aria-controls="offcanvasNavbar" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+    </div>
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel">
+
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="offcanvasNavbarLabel">Offcanvas</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body">
+        <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="#">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/penalty">違規紀錄</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/maintenance">設備報修</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link">
+
+              <a type="button" data-bs-toggle="modal" data-bs-target="#staticBackdrop">
+                登出
               </a>
-            </li>
-            <!-- Modal -->
-            <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-              <div class="modal-dialog">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="staticBackdropLabel">登出</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                  </div>
-                  <div class="modal-body">
-                    <p>是否登出？</p>
-                  </div>
-                  <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <a href="/logout"><button type="button" class="btn btn-primary">登出</button></a>
-                  </div>
+            </a>
+          </li>
+          <!-- Modal -->
+          <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+            aria-labelledby="staticBackdropLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h1 class="modal-title fs-5" id="staticBackdropLabel">登出</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <p>是否登出？</p>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                  <a href="/logout"><button type="button" class="btn btn-primary">登出</button></a>
                 </div>
               </div>
             </div>
-          </ul>
-          <!-- <form class="d-flex mt-3" role="search">
+          </div>
+        </ul>
+        <!-- <form class="d-flex mt-3" role="search">
             <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search"/>
             <button class="btn btn-outline-success" type="submit">Search</button>
           </form> -->
-        </div>
-      </div>
-    </div>
-  </nav>
-
-  <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar">
-    <div class="offcanvas-header">
-      <h5 class="offcanvas-title">功能選單</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-    </div>
-
-    <div class="offcanvas-body">
-      <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link" href="/">首頁</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/machine">機台使用狀態</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/penalty">違規紀錄</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/maintenance">設備報修</a>
-        </li>
-        <li class="nav-item mt-3">
-          <button class="logout-link" data-bs-toggle="modal" data-bs-target="#logoutModal">
-            登出
-          </button>
-        </li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="modal fade" id="logoutModal" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h1 class="modal-title fs-5">登出</h1>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-
-        <div class="modal-body">
-          <p>是否登出？</p>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-          <a href="/logout" class="btn btn-primary">登出</a>
-        </div>
       </div>
     </div>
   </div>
+</nav>
 
-  <!-- 洗衣通知 Modal -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title">功能選單</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+
+  <div class="offcanvas-body">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/">首頁</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/machine">機台使用狀態</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/penalty">違規紀錄</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/maintenance">設備報修</a>
+      </li>
+      <li class="nav-item mt-3">
+        <button class="logout-link" data-bs-toggle="modal" data-bs-target="#logoutModal">
+          登出
+        </button>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="modal fade" id="logoutModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5">登出</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <p>是否登出？</p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <a href="/logout" class="btn btn-primary">登出</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 洗衣通知 Modal -->
 <div class="modal fade" id="notificationModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -171,7 +172,7 @@
 </div>
 
 <body style="padding-top:80px;">
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
 
-<script src="/js/notification.js"></script>
+  <script src="/js/notification.js"></script>
