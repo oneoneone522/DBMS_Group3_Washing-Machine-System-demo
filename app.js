@@ -51,14 +51,18 @@ app.use(session({
 }));
 app.use(express.static('public'));
 app.use(async (req, res, next) => {
+  res.locals.isLoggedIn = !!req.session.user_id;
+  res.locals.user_name = null;
+
   if (req.session.user_id) {
     const [rows] = await mysqlConnectionPool.query(
-      `SELECT User_Name FROM User WHERE User_ID = ?`, [req.session.user_id]
+      `SELECT User_Name FROM User WHERE User_ID = ?`,
+      [req.session.user_id]
     );
+
     res.locals.user_name = rows[0]?.User_Name ?? null;
-  } else {
-    res.locals.user_name = null;
   }
+
   next();
 });
 app.set('view engine', 'ejs');
@@ -66,9 +70,18 @@ app.set('views', './views');
 
 //index
 app.get('/', (req, res) => {
+  if (!req.session.user_id) {
+    return res.redirect('/login');
+  }
+
   const just_reserved_machine_id = req.session.just_reserved_machine_id || null;
-  req.session.just_reserved_machine_id = null; // 讀取後就清除，確保只顯示一次
-  res.render('index',{ title: '使用狀態' , just_reserved_machine_id, machine_id: just_reserved_machine_id });
+  req.session.just_reserved_machine_id = null;
+
+  res.render('index', {
+    title: '使用狀態',
+    just_reserved_machine_id,
+    machine_id: just_reserved_machine_id
+  });
 });
 
 app.get('/api/check-login', (req, res) => {
