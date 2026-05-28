@@ -237,12 +237,15 @@ app.get('/api/my_queue', async (req, res) => {
   const user_id = req.session.user_id;
   const [rows] = await mysqlConnectionPool.query(
     `SELECT qr.Machine_ID, qr.Reservation_Number, qr.Reservation_Status, qr.Turn_Start_Time,
-            m.Machine_Number, m.Floor, m.Dorm, m.Laundry_Room
+            m.Machine_Number, m.Floor, m.Dorm, m.Laundry_Room,
+            ur.Estimated_End_Time AS Machine_End_Time
     FROM queue_record qr
     LEFT JOIN Machine m ON qr.Machine_ID = m.Machine_ID
-    WHERE qr.User_ID = ? AND qr.Reservation_Status = 'waiting'`, [user_id]
+    LEFT JOIN usage_record ur ON qr.Machine_ID = ur.Machine_ID AND ur.Usage_Status = 'in_use'
+    WHERE qr.User_ID = ? AND qr.Reservation_Status = 'waiting'
+    ORDER BY qr.Reservation_Number ASC`, [user_id]
   );
-  return res.status(200).json(rows[0] ?? null);
+  return res.status(200).json(rows);
 });
 
 //cancel queue
@@ -314,7 +317,7 @@ app.get('/use_machine/:machine_id', async (req, res) => {
                     AND Machine_ID = ? 
                     AND Reservation_Status = 'waiting' 
                     ORDER BY Reservation_Number LIMIT 1),
-                    DATE_ADD(NOW(), INTERVAL 1 MINUTE),
+                    DATE_ADD(NOW(), INTERVAL 3 MINUTE),
               'in_use')`,[user_id, machine_id, user_id, machine_id]
     );
     await mysqlConnectionPool.query(

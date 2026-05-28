@@ -122,52 +122,91 @@ async function confirmPickup(usage_id) {
   }
 }
 
+let _queues = [];
+let _queueIndex = 0;
+
 async function loadQueue() {
   const response = await fetch('/api/my_queue');
-  const queue = await response.json();
+  const queues = await response.json();
   const containerQueue = document.getElementById('queue-container');
 
-  if (!queue || (queue.Reservation_Number === "0" && queue.Reservation_Status === 'completed')) {
+  const active = (queues || []).filter(q => q.Reservation_Status === 'waiting');
+  if (active.length === 0) {
     containerQueue.innerHTML = '<p class="empty-msg">目前沒有排隊中的機台</p>';
     return;
   }
 
-  let queueBtn = '';
-  let alertText = '';
-  if (queue.Reservation_Status === 'waiting') {
-    if (queue.Reservation_Number === "0") {
-      queueBtn = `<button class="btn btn-success" onclick="location.href='/scan_qr?machine_id=${queue.Machine_ID}'">掃碼使用</button>`;
-      // 計算剩餘可掃碼時間（Turn_Start_Time + 5 分鐘）
-      const deadline = queue.Turn_Start_Time
-        ? new Date(new Date(queue.Turn_Start_Time).getTime() + 5 * 60 * 1000)
-        : null;
-      if (deadline) {
-        const msLeft = deadline - new Date();
-        if (msLeft > 0) {
-          const mLeft = Math.floor(msLeft / 60000);
-          const sLeft = Math.floor((msLeft % 60000) / 1000);
-          alertText = `輪到您了！請在 ${mLeft}m ${sLeft}s 內掃碼，逾時扣點`;
-        } else {
-          alertText = '輪到您了！請立即掃碼使用（即將過號）';
-        }
-      } else {
-        alertText = '輪到您了！請於時間內掃碼使用，逾時將取消資格';
-      }
-    } else {
-      queueBtn = `<button class="btn btn-danger" id="cancelBtn" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>`;
-      alertText = `排隊序號： ${queue.Reservation_Number}`;
+  _queues = active;
+  // 保持目前顯示的 index（若超出範圍就回到 0）
+  if (_queueIndex >= _queues.length) _queueIndex = 0;
+  renderQueueCard(_queueIndex);
+}
+
+function renderQueueCard(idx) {
+  const containerQueue = document.getElementById('queue-container');
+  const queue = _queues[idx];
+  const total = _queues.length;
+  const WASH_MIN = 3; // 每次洗衣預估分鐘（demo 用 3 分鐘）
+
+  // 預估等待時間
+  let waitMin = 0;
+  const num = parseInt(queue.Reservation_Number);
+  if (num > 0) {
+    let remainingMs = 0;
+    if (queue.Machine_End_Time) {
+      remainingMs = Math.max(0, new Date(queue.Machine_End_Time) - new Date());
     }
+    waitMin = Math.ceil(remainingMs / 60000) + (num - 1) * WASH_MIN;
   }
 
+  // 按鈕 & 提示文字
+  let queueBtn = '';
+  let alertText = '';
+  if (num === 0) {
+    const deadline = queue.Turn_Start_Time
+      ? new Date(new Date(queue.Turn_Start_Time).getTime() + 5 * 60 * 1000)
+      : null;
+    if (deadline) {
+      const msLeft = deadline - new Date();
+      if (msLeft > 0) {
+        const mL = Math.floor(msLeft / 60000);
+        const sL = Math.floor((msLeft % 60000) / 1000);
+        alertText = `輪到您了！請在 ${mL}m ${sL}s 內掃碼，逾時扣點`;
+      } else {
+        alertText = '輪到您了！請立即掃碼（即將過號）';
+      }
+    } else {
+      alertText = '輪到您了！請掃碼使用';
+    }
+    queueBtn = `<button class="btn btn-success w-100 mt-2" onclick="location.href='/scan_qr?machine_id=${queue.Machine_ID}'">掃碼使用</button>`;
+  } else {
+    alertText = `排隊序號：${num}　預估等待 <strong>約 ${waitMin} 分鐘</strong>`;
+    queueBtn = `<button class="btn btn-danger w-100 mt-2" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>`;
+  }
+
+  // 導覽箭頭
+  const navBar = total > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <button class="btn btn-sm btn-outline-secondary px-2" onclick="changeQueueIndex(-1)">◀</button>
+      <span style="font-size:12px;color:#aaa;">${idx + 1} / ${total}　台機器在排隊</span>
+      <button class="btn btn-sm btn-outline-secondary px-2" onclick="changeQueueIndex(1)">▶</button>
+    </div>` : '';
+
   containerQueue.innerHTML = `
+    ${navBar}
     <div class="machine-header">
       <div class="machine-number">${queue.Machine_Number} 號機</div>
       <span class="machine-badge">排隊中</span>
     </div>
     <div class="machine-location">${queue.Dorm} ${queue.Floor}F - ${queue.Laundry_Room}</div>
-    <div class="time-label">${alertText}</div>
+    <div class="time-label mt-2">${alertText}</div>
     ${queueBtn}
   `;
+}
+
+function changeQueueIndex(dir) {
+  _queueIndex = (_queueIndex + dir + _queues.length) % _queues.length;
+  renderQueueCard(_queueIndex);
 }
 
 async function cancelQueue(machine_id) {
