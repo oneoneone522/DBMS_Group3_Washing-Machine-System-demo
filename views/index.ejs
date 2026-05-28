@@ -125,8 +125,10 @@ async function cancelQueue(machine_id) {
   }
 }
 
-loadUsage();
-loadQueue();
+checkLogin(() => {
+  loadUsage();
+  loadQueue();
+});
 </script>
 
 <%- include('partials/footer') %>

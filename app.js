@@ -49,16 +49,27 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: false }   // 本地開發用 false，上線再改 true
 }));
+// 禁止瀏覽器快取受保護頁面
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
 app.use(express.static('public'));
 app.use(async (req, res, next) => {
+  res.locals.isLoggedIn = !!req.session.user_id;
+  res.locals.user_name = null;
+
   if (req.session.user_id) {
     const [rows] = await mysqlConnectionPool.query(
-      `SELECT User_Name FROM User WHERE User_ID = ?`, [req.session.user_id]
+      `SELECT User_Name FROM User WHERE User_ID = ?`,
+      [req.session.user_id]
     );
+
     res.locals.user_name = rows[0]?.User_Name ?? null;
-  } else {
-    res.locals.user_name = null;
   }
+
   next();
 });
 app.set('view engine', 'ejs');
@@ -66,9 +77,18 @@ app.set('views', './views');
 
 //index
 app.get('/', (req, res) => {
+  if (!req.session.user_id) {
+    return res.redirect('/login');
+  }
+
   const just_reserved_machine_id = req.session.just_reserved_machine_id || null;
-  req.session.just_reserved_machine_id = null; // 讀取後就清除，確保只顯示一次
-  res.render('index',{ title: '使用狀態' , just_reserved_machine_id, machine_id: just_reserved_machine_id });
+  req.session.just_reserved_machine_id = null;
+
+  res.render('index', {
+    title: '使用狀態',
+    just_reserved_machine_id,
+    machine_id: just_reserved_machine_id
+  });
 });
 
 app.get('/api/check-login', (req, res) => {
@@ -301,7 +321,7 @@ app.get('/use_machine/:machine_id', async (req, res) => {
                     AND Machine_ID = ? 
                     AND Reservation_Status = 'waiting' 
                     ORDER BY Reservation_Number LIMIT 1),
-                    DATE_ADD(NOW(), INTERVAL 30 MINUTE),
+                    DATE_ADD(NOW(), INTERVAL 3 MINUTE),
               'in_use')`,[user_id, machine_id, user_id, machine_id]
     );
     await mysqlConnectionPool.query(
@@ -383,24 +403,124 @@ app.get('/api/dorm', async (req, res) => {
   }
 });
 app.post("/signup", async (req, res) => {
-  const { dorm, user_name, student_id, room_number, email, password, confirm_password } = req.body;
+  let { dorm, user_name, student_id, room_number, email, password, confirm_password } = req.body;
+
+  email = email.trim().toLowerCase();
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(email)) {
+    return res.render('signup', {
+      title: '註冊',
+      error: 'Email 格式不正確，請重新輸入'
+    });
+  }
 
   if (password !== confirm_password) {
-    return res.render('signup', { title: '註冊', error: '兩次密碼輸入不一致' });
+    return res.render('signup', {
+      title: '註冊',
+      error: '兩次密碼輸入不一致'
+    });
   }
 
   try {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires_at = new Date(Date.now() + 60 * 60 * 1000); // 1 小時後過期
+
     await mysqlConnectionPool.query(
-      "INSERT INTO User (Dorm, User_Name, Student_ID, Room_Number, Email, Password) VALUES (?, ?, ?, ?, ?, ?)",
-      [dorm, user_name, student_id, room_number, email, password]
+      `INSERT INTO User 
+       (Dorm, User_Name, Student_ID, Room_Number, Email, Password, Email_Verified, Email_Verification_Token, Email_Verification_Expires) 
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      [dorm, user_name, student_id, room_number, email, password, token, expires_at]
     );
-    res.redirect('/login');
+
+    const verifyUrl = `http://localhost:3000/verify-email/${token}`;
+
+    await transporter.sendMail({
+      from: `"洗衣系統" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: '請驗證您的洗衣系統帳號',
+      html: `
+        <p>您好，${user_name}：</p>
+        <p>感謝您註冊宿舍洗衣機預約系統。</p>
+        <p>請點擊以下連結完成 Email 驗證：</p>
+        <a href="${verifyUrl}">${verifyUrl}</a>
+        <p>此連結將於 1 小時後失效。</p>
+        <br>
+        <p style="color:#888;font-size:12px;">— 宿舍洗衣機管理系統</p>
+      `,
+    });
+
+    return res.render('signup', {
+      title: '註冊',
+      success: '註冊成功！請到信箱收取驗證信，完成驗證後才能登入。'
+    });
+
   } catch (err) {
     console.error('[signup error]', err.code, err.message);
+
     if (err.code === 'ER_DUP_ENTRY') {
-      return res.render('signup', { title: '註冊', error: '此 Email 或學號已被註冊過' });
+      return res.render('signup', {
+        title: '註冊',
+        error: '此 Email 或學號已被註冊過'
+      });
     }
-    return res.render('signup', { title: '註冊', error: '註冊失敗，請稍後再試' });
+
+    return res.render('signup', {
+      title: '註冊',
+      error: '註冊失敗，請稍後再試'
+    });
+  }
+});
+
+app.get('/verify-email/:token', async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const [rows] = await mysqlConnectionPool.query(
+      `SELECT User_ID 
+       FROM User 
+       WHERE Email_Verification_Token = ?
+         AND Email_Verification_Expires > NOW()
+         AND Email_Verified = 0`,
+      [token]
+    );
+
+    if (rows.length === 0) {
+      return res.send(`
+        <script>
+          alert('驗證連結無效或已過期，請重新註冊或重新申請驗證信');
+          location.href = '/login';
+        </script>
+      `);
+    }
+
+    const user_id = rows[0].User_ID;
+
+    await mysqlConnectionPool.query(
+      `UPDATE User 
+       SET Email_Verified = 1,
+           Email_Verification_Token = NULL,
+           Email_Verification_Expires = NULL
+       WHERE User_ID = ?`,
+      [user_id]
+    );
+
+    return res.send(`
+      <script>
+        alert('Email 驗證成功，請登入');
+        location.href = '/login';
+      </script>
+    `);
+
+  } catch (err) {
+    console.error('[verify-email error]', err);
+    return res.send(`
+      <script>
+        alert('驗證失敗，請稍後再試');
+        location.href = '/login';
+      </script>
+    `);
   }
 });
 
@@ -411,16 +531,31 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
+  let { email, password } = req.body;
 
-  const { email, password } = req.body;
+  email = email.trim().toLowerCase();
+
   const [rows] = await mysqlConnectionPool.query(
-    "SELECT User_ID, Password FROM User WHERE Email = ?",
+    "SELECT User_ID, Password, Email_Verified FROM User WHERE Email = ?",
     [email]
   );
 
   if (rows.length === 0 || rows[0].Password !== password) {
-    return res.render('login', { title: '登入', error: '帳號或密碼錯誤', reset: false });
+    return res.render('login', {
+      title: '登入',
+      error: '帳號或密碼錯誤',
+      reset: false
+    });
   }
+
+  if (rows[0].Email_Verified !== 1) {
+    return res.render('login', {
+      title: '登入',
+      error: '請先到信箱點擊驗證連結，完成 Email 驗證後才能登入',
+      reset: false
+    });
+  }
+
   req.session.user_id = rows[0].User_ID;
   res.redirect('/');
 });
@@ -428,7 +563,7 @@ app.post('/login', async (req, res) => {
 //forgot password
 app.get('/forgot-password', (req, res) => {
   const sent = req.query.sent === '1';
-  req.console.log("forgot-password, sent:", sent);
+  console.log("forgot-password, sent:", sent);
   res.render('forgot_password', { title: '忘記密碼', sent });
 });
 
@@ -704,7 +839,56 @@ app.get('/api/notifications', async (req, res) => {
       }
     }
 
-    // 3. 洗衣結束前 10 分鐘寄送 Email 提醒
+    // 3. 取衣超時判定：洗完後超過 5 分鐘未按「完成」→ 強制結束 + 扣點
+    const [pickupOverdue] = await mysqlConnectionPool.query(`
+      SELECT ur.Usage_ID, ur.User_ID, ur.Machine_ID
+      FROM usage_record ur
+      WHERE ur.Usage_Status = 'in_use'
+        AND ur.Estimated_End_Time IS NOT NULL
+        AND TIMESTAMPDIFF(MINUTE, ur.Estimated_End_Time, NOW()) >= 5
+    `);
+
+    for (const usage of pickupOverdue) {
+      // 確認尚未處理過（避免重複）
+      const [alreadyPenalized] = await mysqlConnectionPool.query(`
+        SELECT Notification_ID FROM notifications
+        WHERE User_ID = ? AND Usage_ID = ? AND Notification_Type = '取衣逾時扣點'
+      `, [usage.User_ID, usage.Usage_ID]);
+
+      if (alreadyPenalized.length === 0) {
+        // 強制結束使用
+        await mysqlConnectionPool.query(
+          `UPDATE machine SET in_use = 'idle' WHERE Machine_ID = ?`, [usage.Machine_ID]
+        );
+        await mysqlConnectionPool.query(
+          `UPDATE usage_record SET Usage_Status = 'finished' WHERE Usage_ID = ?`, [usage.Usage_ID]
+        );
+        // 推進排隊
+        await mysqlConnectionPool.query(
+          `UPDATE queue_record SET Reservation_Number = Reservation_Number - 1
+           WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number > 0`,
+          [usage.Machine_ID]
+        );
+        // 設定下一位計時
+        await mysqlConnectionPool.query(
+          `UPDATE queue_record SET Turn_Start_Time = NOW()
+           WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number = 0`,
+          [usage.Machine_ID]
+        );
+        // 扣點
+        await mysqlConnectionPool.query(
+          `INSERT INTO Penalty (User_ID, Penalty_Type, Point, Created_At)
+           VALUES (?, '取衣逾時', 1, NOW())`, [usage.User_ID]
+        );
+        // 通知（防重複用）
+        await mysqlConnectionPool.query(
+          `INSERT INTO notifications (User_ID, Queue_ID, Usage_ID, Notification_Type, Notification_Time)
+           VALUES (?, NULL, ?, '取衣逾時扣點', NOW())`, [usage.User_ID, usage.Usage_ID]
+        );
+      }
+    }
+
+    // 4. 洗衣結束前 10 分鐘寄送 Email 提醒
     const [emailRows] = await mysqlConnectionPool.query(`
       SELECT ur.Usage_ID, u.Email, u.User_Name,
              m.Machine_Number, m.Dorm, m.Floor, m.Laundry_Room,
