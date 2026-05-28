@@ -44,6 +44,10 @@
                 if (isInUse) {
                     machineBtn = `<button disabled>洗衣中</button>`;
                 }
+                else if (m.in_use === 'busy' && m.Estimated_End_Time && new Date(m.Estimated_End_Time) < new Date()) {
+                    // 待取衣狀態：前一位還沒取衣，鎖定掃碼
+                    machineBtn = `<button disabled style="background:#f59e0b;">⏳ 待前一位取衣</button>`;
+                }
                 else if (m.Waiting_Queue_Count == 0 && m.in_use === 'idle' && m.Machine_Status === '正常') {
                     machineBtn = `<button id="scan-btn-${m.Machine_ID}" onclick="location.href='/scan_qr?machine_id=${m.Machine_ID}'">掃碼使用</button>`
                 }
@@ -57,6 +61,7 @@
                 }
 
                 let remainingTimeText = '';
+                let isPickupPending = false;
                 if (m.in_use === 'busy' && m.Estimated_End_Time) {
                     const remaining = new Date(m.Estimated_End_Time) - new Date();
                     if (remaining > 0) {
@@ -64,7 +69,16 @@
                         const secs = Math.floor((remaining % 60000) / 1000);
                         remainingTimeText = `${mins} 分 ${secs} 秒`;
                     } else {
-                        remainingTimeText = '即將完成';
+                        // 洗衣已結束，前一位正在取衣
+                        isPickupPending = true;
+                        const pickupRemaining = new Date(m.Estimated_End_Time).getTime() + 5 * 60 * 1000 - new Date();
+                        if (pickupRemaining > 0) {
+                            const pm = Math.floor(pickupRemaining / 60000);
+                            const ps = Math.floor((pickupRemaining % 60000) / 1000);
+                            remainingTimeText = `⏳ 待取衣（${pm}m ${ps}s 後可用）`;
+                        } else {
+                            remainingTimeText = '⏳ 待取衣（即將釋出）';
+                        }
                     }
                 } else {
                     remainingTimeText = '目前無人使用';

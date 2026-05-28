@@ -42,17 +42,23 @@ async function loadUsage() {
     containerUsage.innerHTML = '<p class="empty-msg">目前無洗衣行程</p>';
     return;
   }
-  startCountDown(new Date(usage.Estimated_End_Time), containerUsage, usage);
+  const now = new Date();
+  const endsAt = new Date(usage.Estimated_End_Time);
+  // 如果洗衣已結束（重新開啟頁面也能正確顯示）
+  if (now >= endsAt) {
+    showPickupUI(containerUsage, usage);
+  } else {
+    startCountDown(endsAt, containerUsage, usage);
+  }
 }
 
-async function startCountDown(endsAt, containerUsage, usage) {
-  const interval = setInterval(async () => {
+function startCountDown(endsAt, containerUsage, usage) {
+  const interval = setInterval(() => {
     const remaining = endsAt - new Date();
     if (remaining <= 0) {
       clearInterval(interval);
-      containerUsage.innerHTML = '<p class="empty-msg">目前無洗衣行程</p>';
-      await fetch(`/api/finished/${usage.Usage_ID}`, { method: 'POST' });
-      alert('洗衣行程結束！');
+      // 洗衣結束 → 顯示「完成」按鈕，不再自動結束
+      showPickupUI(containerUsage, usage);
       return;
     }
     const m = Math.floor(remaining / 60000);
@@ -67,6 +73,53 @@ async function startCountDown(endsAt, containerUsage, usage) {
       <div class="time-value">${m} min ${s} sec</div>
     `;
   }, 1000);
+}
+
+function showPickupUI(containerUsage, usage) {
+  const pickupDeadline = new Date(new Date(usage.Estimated_End_Time).getTime() + 5 * 60 * 1000);
+
+  function renderPickup() {
+    const msLeft = pickupDeadline - new Date();
+    const m = Math.max(0, Math.floor(msLeft / 60000));
+    const s = Math.max(0, Math.floor((msLeft % 60000) / 1000));
+    const countdownText = msLeft > 0
+      ? `${m} 分 ${s} 秒 後自動結束並扣點`
+      : '已超時，系統將自動扣點';
+    containerUsage.innerHTML = `
+      <div class="machine-header">
+        <div class="machine-number">${usage.Machine_ID} 號機</div>
+        <span class="machine-badge" style="background:#fef3c7;color:#d97706;">待取衣</span>
+      </div>
+      <div class="machine-location">${usage.Dorm} ${usage.Floor}F - ${usage.Laundry_Room}</div>
+      <div class="time-label" style="color:#ef4444;">⚠️ 請取出衣物並按下完成</div>
+      <div class="time-value" style="font-size:16px;color:#ef4444;">${countdownText}</div>
+      <button class="btn btn-success mt-2 w-100" onclick="confirmPickup(${usage.Usage_ID})">
+        ✅ 衣物已取出（完成）
+      </button>
+    `;
+  }
+
+  renderPickup();
+  const pickupTimer = setInterval(() => {
+    const el = document.getElementById('usage-container');
+    // 如果卡片已被替換（例如按了完成），停止計時
+    if (!el || !el.querySelector('.btn-success')) { clearInterval(pickupTimer); return; }
+    renderPickup();
+  }, 1000);
+}
+
+async function confirmPickup(usage_id) {
+  const btn = document.querySelector('#usage-container .btn-success');
+  if (btn) { btn.disabled = true; btn.textContent = '處理中...'; }
+  const res = await fetch(`/api/finished/${usage_id}`, { method: 'POST' });
+  if (res.ok) {
+    alert('✅ 完成！感謝您及時取出衣物');
+    loadUsage();
+    loadQueue();
+  } else {
+    if (btn) { btn.disabled = false; btn.textContent = '✅ 衣物已取出（完成）'; }
+    alert('發生錯誤，請重試');
+  }
 }
 
 async function loadQueue() {

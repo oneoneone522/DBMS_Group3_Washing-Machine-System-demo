@@ -704,7 +704,56 @@ app.get('/api/notifications', async (req, res) => {
       }
     }
 
-    // 3. 洗衣結束前 10 分鐘寄送 Email 提醒
+    // 3. 取衣超時判定：洗完後超過 5 分鐘未按「完成」→ 強制結束 + 扣點
+    const [pickupOverdue] = await mysqlConnectionPool.query(`
+      SELECT ur.Usage_ID, ur.User_ID, ur.Machine_ID
+      FROM usage_record ur
+      WHERE ur.Usage_Status = 'in_use'
+        AND ur.Estimated_End_Time IS NOT NULL
+        AND TIMESTAMPDIFF(MINUTE, ur.Estimated_End_Time, NOW()) >= 5
+    `);
+
+    for (const usage of pickupOverdue) {
+      // 確認尚未處理過（避免重複）
+      const [alreadyPenalized] = await mysqlConnectionPool.query(`
+        SELECT Notification_ID FROM notifications
+        WHERE User_ID = ? AND Usage_ID = ? AND Notification_Type = '取衣逾時扣點'
+      `, [usage.User_ID, usage.Usage_ID]);
+
+      if (alreadyPenalized.length === 0) {
+        // 強制結束使用
+        await mysqlConnectionPool.query(
+          `UPDATE machine SET in_use = 'idle' WHERE Machine_ID = ?`, [usage.Machine_ID]
+        );
+        await mysqlConnectionPool.query(
+          `UPDATE usage_record SET Usage_Status = 'finished' WHERE Usage_ID = ?`, [usage.Usage_ID]
+        );
+        // 推進排隊
+        await mysqlConnectionPool.query(
+          `UPDATE queue_record SET Reservation_Number = Reservation_Number - 1
+           WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number > 0`,
+          [usage.Machine_ID]
+        );
+        // 設定下一位計時
+        await mysqlConnectionPool.query(
+          `UPDATE queue_record SET Turn_Start_Time = NOW()
+           WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number = 0`,
+          [usage.Machine_ID]
+        );
+        // 扣點
+        await mysqlConnectionPool.query(
+          `INSERT INTO Penalty (User_ID, Penalty_Type, Point, Created_At)
+           VALUES (?, '取衣逾時', 1, NOW())`, [usage.User_ID]
+        );
+        // 通知（防重複用）
+        await mysqlConnectionPool.query(
+          `INSERT INTO notifications (User_ID, Queue_ID, Usage_ID, Notification_Type, Notification_Time)
+           VALUES (?, NULL, ?, '取衣逾時扣點', NOW())`, [usage.User_ID, usage.Usage_ID]
+        );
+      }
+    }
+
+    // 4. 洗衣結束前 10 分鐘寄送 Email 提醒
     const [emailRows] = await mysqlConnectionPool.query(`
       SELECT ur.Usage_ID, u.Email, u.User_Name,
              m.Machine_Number, m.Dorm, m.Floor, m.Laundry_Room,
