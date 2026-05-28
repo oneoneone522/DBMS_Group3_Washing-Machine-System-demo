@@ -423,6 +423,7 @@ app.post('/login', async (req, res) => {
 //forgot password
 app.get('/forgot-password', (req, res) => {
   const sent = req.query.sent === '1';
+  req.console.log("forgot-password, sent:", sent);
   res.render('forgot_password', { title: '忘記密碼', sent });
 });
 
