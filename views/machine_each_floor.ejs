@@ -50,8 +50,8 @@
                 else {
                     machineBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})">我要排隊</button>`;
                 }
-                card.className = 'card';
-                let machineStatusText = '';
+                card.className = 'machine-card';
+                let machineStatusText = m.Machine_Status;
                 if (m.Machine_Status === '故障') { 
                     machineStatusText = m.Machine_Status;
                 }
@@ -69,12 +69,36 @@
                 } else {
                     remainingTimeText = '目前無人使用';
                 }
-                card.innerHTML = `<p> ${m.Machine_Number} 號機</p>
-                            <p>${machineStatusText}</p>
-                            <p>剩餘時間： ${remainingTimeText}</p>
-                            <p>排隊人數： ${m.Waiting_Queue_Count} </p>
-                            ${machineBtn}`;
-                            container.appendChild(card);
+                card.innerHTML = `
+                    <div class="machine-card-header">
+                <div>
+                   <div class="machine-card-title">${m.Machine_Number} 號機</div>
+                  <div class="machine-card-location">${m.Dorm}－${m.Floor}F－${m.Laundry_Room}</div>
+                </div>
+                    <span class="machine-status-badge ${
+                        m.Machine_Status === '故障'
+                        ? 'status-danger'
+                        : 'status-normal'
+                        }">
+                     ${machineStatusText}
+                    </span>
+                </div>
+
+                <div class="machine-card-info">
+            <div>
+                <div class="info-label">剩餘時間</div>
+                <div class="info-value">${remainingTimeText}</div>
+            </div>
+             <div>
+                 <div class="info-label">排隊人數</div>
+                 <div class="info-value">${m.Waiting_Queue_Count} 人</div>
+            </div>
+        </div>
+
+             <div class="machine-card-action">
+            ${machineBtn}
+        </div>`;
+            container.appendChild(card);
             });
         });
     };
