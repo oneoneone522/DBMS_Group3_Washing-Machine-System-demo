@@ -359,3 +359,110 @@ body {
 .btn-status:hover {
   background: #27ae60;
 }
+
+#floor-btn-container {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin: 24px 0 48px;
+}
+
+#floor-btn-container button {
+  width: 108px;
+  height: 36px;
+  border-radius: 6px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#floor-machine-status {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 32px;
+  padding: 0 24px;
+}
+
+#floor-machine-status h3 {
+  display: none;
+}
+
+.machine-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 22px 18px;
+  box-shadow: none;
+  min-height: 176px;
+}
+
+.machine-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.machine-card-title {
+  font-size: 20px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.machine-card-location {
+  font-size: 12px;
+  color: #888;
+  text-align: left;
+}
+
+.machine-status-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.machine-card-info {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 18px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 6px;
+}
+
+.info-value {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.machine-card-action button {
+  min-width: 96px;
+  height: 32px;
+  padding: 0 18px;
+  margin: 0;
+  border-radius: 9px;
+  background: #13235f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.machine-card-action button:disabled {
+  background: #999;
+}
+
+.status-normal {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.status-danger {
+  background: #fee2e2;
+  color: #dc2626;
+}
