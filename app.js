@@ -314,7 +314,7 @@ app.get('/use_machine/:machine_id', async (req, res) => {
                     AND Machine_ID = ? 
                     AND Reservation_Status = 'waiting' 
                     ORDER BY Reservation_Number LIMIT 1),
-                    DATE_ADD(NOW(), INTERVAL 30 MINUTE),
+                    DATE_ADD(NOW(), INTERVAL 3 MINUTE),
               'in_use')`,[user_id, machine_id, user_id, machine_id]
     );
     await mysqlConnectionPool.query(
