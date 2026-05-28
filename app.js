@@ -370,7 +370,7 @@ app.post('/login', async (req, res) => {
 
   const {email, password} = req.body;
   const result = await mysqlConnectionPool.query(
-    "SELECT User_ID FROM User WHERE User_Email = ? AND Password = ?",
+    "SELECT User_ID FROM User WHERE Email = ? AND Password = ?",
     [email, password]
   );
   const rows = result[0];
