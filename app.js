@@ -49,6 +49,13 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: false }   // 本地開發用 false，上線再改 true
 }));
+// 禁止瀏覽器快取受保護頁面
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
 app.use(express.static('public'));
 app.use(async (req, res, next) => {
   res.locals.isLoggedIn = !!req.session.user_id;

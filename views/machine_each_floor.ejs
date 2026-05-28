@@ -181,9 +181,10 @@
             container.appendChild(btn);
         });
     }
-    checkLogin();
-    FloorMachineStatus();
-    floorBtn();
-    setInterval(FloorMachineStatus, 5000); // 每 5 秒更新剩餘時間
+    checkLogin(() => {
+  FloorMachineStatus();
+  floorBtn();
+  setInterval(FloorMachineStatus, 5000);
+}); // 每 5 秒更新剩餘時間
 </script>
 <%- include('partials/footer') %>
