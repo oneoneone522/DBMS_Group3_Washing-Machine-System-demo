@@ -1,37 +1,46 @@
 <!-- machine.ejs -->
 <%- include('partials/header') %>
     <h1><%= Dorm %> 洗衣機使用狀況一覽</h1>
-    <div id="machineStatus-container" style="width: 18rem;"></div>
+    <div id="machineStatus-container" class="container mt-4" style="max-width:600px;"></div>
     <script src="/js/checkLogin.js"></script>
     <script>
       async function loadMachineStatus() {
         const response = await fetch('/api/machine/my-dorm');
         const machineStatus = await response.json();
+
+        // 統計各樓層空機數 / 總機數
         const floorCount = {};
+        const floorTotal = {};
         machineStatus.forEach(machine => {
           const floor = machine.Floor;
-          if (!floorCount[floor]) {
-            floorCount[floor] = 0;
-          }
-          if (machine.in_use === 'idle') {
-            floorCount[floor] ++;
-          }                   
-        }); 
+          if (!floorTotal[floor]) { floorTotal[floor] = 0; floorCount[floor] = 0; }
+          floorTotal[floor]++;
+          if (machine.in_use === 'idle') floorCount[floor]++;
+        });
+
         const container = document.getElementById('machineStatus-container');
-        Object.keys(floorCount).forEach(floor => {
-          const card = document.createElement('div');
-          card.className = 'card';
-          card.innerHTML = `
-          <button type="button">
-            <a href="/machine/floor/${floor}">
-              <div class = 'card-body'>
-                <h5 class = 'card-title'>${floor} 樓</h5>  
-                <p class = 'card-text'>空機數：${floorCount[floor]}</p>
+        container.innerHTML = '';
+
+        Object.keys(floorTotal).sort((a,b) => a - b).forEach(floor => {
+          const idle = floorCount[floor];
+          const total = floorTotal[floor];
+          const badgeColor = idle > 0 ? 'bg-success' : 'bg-danger';
+          const badgeText = idle > 0 ? `空閒 ${idle}/${total}` : `全部使用中`;
+
+          const col = document.createElement('div');
+          col.className = 'mb-3';
+          col.innerHTML = `
+            <a href="/machine/floor/${floor}" class="text-decoration-none">
+              <div class="card shadow-sm border-0 p-3 d-flex flex-row align-items-center justify-content-between">
+                <div>
+                  <h5 class="mb-1 fw-bold text-dark">${floor} 樓</h5>
+                  <p class="mb-0 text-muted" style="font-size:13px">點擊查看各機台狀態</p>
+                </div>
+                <span class="badge ${badgeColor} fs-6 px-3 py-2">${badgeText}</span>
               </div>
             </a>
-          </button>
           `;
-          container.appendChild(card);          
+          container.appendChild(col);
         });
       }
       checkLogin(loadMachineStatus);
