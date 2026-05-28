@@ -52,18 +52,22 @@
                     machineStatusText = m.Machine_Status;
                 }
 
-                // let remainingTimeText = '';
-                // if (currentUsage.Remaining_Time) {
-                //     const m = Math.floor(currentUsage.Remaining_Time / 60000);
-                //     const s = Math.floor((currentUsage.Remaining_Time % 60000) / 1000);
-                //     remainingTimeText = `${m} 分 ${s} 秒`;
-                // }
-                // else {
-                //     remainingTimeText = '此機台目前無人使用';
-                // }
+                let remainingTimeText = '';
+                if (m.in_use === 'busy' && m.Estimated_End_Time) {
+                    const remaining = new Date(m.Estimated_End_Time) - new Date();
+                    if (remaining > 0) {
+                        const mins = Math.floor(remaining / 60000);
+                        const secs = Math.floor((remaining % 60000) / 1000);
+                        remainingTimeText = `${mins} 分 ${secs} 秒`;
+                    } else {
+                        remainingTimeText = '即將完成';
+                    }
+                } else {
+                    remainingTimeText = '目前無人使用';
+                }
                 card.innerHTML = `<p> ${m.Machine_Number} 號機</p>
                             <p>${machineStatusText}</p>
-                            // <p>剩餘時間： No No 還沒做好^^</p>
+                            <p>剩餘時間： ${remainingTimeText}</p>
                             <p>排隊人數： ${m.Waiting_Queue_Count} </p>
                             ${machineBtn}`;
                             container.appendChild(card);
@@ -141,5 +145,6 @@
     checkLogin();
     FloorMachineStatus();
     floorBtn();
+    setInterval(FloorMachineStatus, 5000); // 每 5 秒更新剩餘時間
 </script>
 <%- include('partials/footer') %>
