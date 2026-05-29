@@ -63,6 +63,7 @@
                 }
 
                 let remainingTimeText = '';
+                let isPickupPending = false;
                 if (m.in_use === 'busy' && m.Estimated_End_Time) {
                     const remaining = new Date(m.Estimated_End_Time) - new Date();
                     if (remaining > 0) {
@@ -70,7 +71,16 @@
                         const secs = Math.floor((remaining % 60000) / 1000);
                         remainingTimeText = `${mins} 分 ${secs} 秒`;
                     } else {
-                        remainingTimeText = '即將完成';
+                        // 洗衣已結束，前一位正在取衣
+                        isPickupPending = true;
+                        const pickupRemaining = new Date(m.Estimated_End_Time).getTime() + 5 * 60 * 1000 - new Date();
+                        if (pickupRemaining > 0) {
+                            const pm = Math.floor(pickupRemaining / 60000);
+                            const ps = Math.floor((pickupRemaining % 60000) / 1000);
+                            remainingTimeText = `⏳ 待取衣（${pm}m ${ps}s 後可用）`;
+                        } else {
+                            remainingTimeText = '⏳ 待取衣（即將釋出）';
+                        }
                     }
                 } else {
                     remainingTimeText = '目前無人使用';
@@ -173,9 +183,10 @@
             container.appendChild(btn);
         });
     }
-    checkLogin();
-    FloorMachineStatus();
-    floorBtn();
-    setInterval(FloorMachineStatus, 5000); // 每 5 秒更新剩餘時間
+    checkLogin(() => {
+  FloorMachineStatus();
+  floorBtn();
+  setInterval(FloorMachineStatus, 5000);
+}); // 每 5 秒更新剩餘時間
 </script>
 <%- include('partials/footer') %>

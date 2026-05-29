@@ -42,17 +42,23 @@ async function loadUsage() {
     containerUsage.innerHTML = '<p class="empty-msg">目前無洗衣行程</p>';
     return;
   }
-  startCountDown(new Date(usage.Estimated_End_Time), containerUsage, usage);
+  const now = new Date();
+  const endsAt = new Date(usage.Estimated_End_Time);
+  // 如果洗衣已結束（重新開啟頁面也能正確顯示）
+  if (now >= endsAt) {
+    showPickupUI(containerUsage, usage);
+  } else {
+    startCountDown(endsAt, containerUsage, usage);
+  }
 }
 
-async function startCountDown(endsAt, containerUsage, usage) {
-  const interval = setInterval(async () => {
+function startCountDown(endsAt, containerUsage, usage) {
+  const interval = setInterval(() => {
     const remaining = endsAt - new Date();
     if (remaining <= 0) {
       clearInterval(interval);
-      containerUsage.innerHTML = '<p class="empty-msg">目前無洗衣行程</p>';
-      await fetch(`/api/finished/${usage.Usage_ID}`, { method: 'POST' });
-      alert('洗衣行程結束！');
+      // 洗衣結束 → 顯示「完成」按鈕，不再自動結束
+      showPickupUI(containerUsage, usage);
       return;
     }
     const m = Math.floor(remaining / 60000);
@@ -69,52 +75,138 @@ async function startCountDown(endsAt, containerUsage, usage) {
   }, 1000);
 }
 
+function showPickupUI(containerUsage, usage) {
+  const pickupDeadline = new Date(new Date(usage.Estimated_End_Time).getTime() + 5 * 60 * 1000);
+
+  function renderPickup() {
+    const msLeft = pickupDeadline - new Date();
+    const m = Math.max(0, Math.floor(msLeft / 60000));
+    const s = Math.max(0, Math.floor((msLeft % 60000) / 1000));
+    const countdownText = msLeft > 0
+      ? `${m} 分 ${s} 秒 後自動結束並扣點`
+      : '已超時，系統將自動扣點';
+    containerUsage.innerHTML = `
+      <div class="machine-header">
+        <div class="machine-number">${usage.Machine_ID} 號機</div>
+        <span class="machine-badge" style="background:#fef3c7;color:#d97706;">待取衣</span>
+      </div>
+      <div class="machine-location">${usage.Dorm} ${usage.Floor}F - ${usage.Laundry_Room}</div>
+      <div class="time-label" style="color:#ef4444;">⚠️ 請取出衣物並按下完成</div>
+      <div class="time-value" style="font-size:16px;color:#ef4444;">${countdownText}</div>
+      <button class="btn btn-success mt-2 w-100" onclick="confirmPickup(${usage.Usage_ID})">
+        ✅ 衣物已取出（完成）
+      </button>
+    `;
+  }
+
+  renderPickup();
+  const pickupTimer = setInterval(() => {
+    const el = document.getElementById('usage-container');
+    // 如果卡片已被替換（例如按了完成），停止計時
+    if (!el || !el.querySelector('.btn-success')) { clearInterval(pickupTimer); return; }
+    renderPickup();
+  }, 1000);
+}
+
+async function confirmPickup(usage_id) {
+  const btn = document.querySelector('#usage-container .btn-success');
+  if (btn) { btn.disabled = true; btn.textContent = '處理中...'; }
+  const res = await fetch(`/api/finished/${usage_id}`, { method: 'POST' });
+  if (res.ok) {
+    alert('✅ 完成！感謝您及時取出衣物');
+    loadUsage();
+    loadQueue();
+  } else {
+    if (btn) { btn.disabled = false; btn.textContent = '✅ 衣物已取出（完成）'; }
+    alert('發生錯誤，請重試');
+  }
+}
+
+let _queues = [];
+let _queueIndex = 0;
+
 async function loadQueue() {
   const response = await fetch('/api/my_queue');
-  const queue = await response.json();
+  const queues = await response.json();
   const containerQueue = document.getElementById('queue-container');
 
-  if (!queue || (queue.Reservation_Number === "0" && queue.Reservation_Status === 'completed')) {
+  const active = (queues || []).filter(q => q.Reservation_Status === 'waiting');
+  if (active.length === 0) {
     containerQueue.innerHTML = '<p class="empty-msg">目前沒有排隊中的機台</p>';
     return;
   }
 
-  let queueBtn = '';
-  let alertText = '';
-  if (queue.Reservation_Status === 'waiting') {
-    if (queue.Reservation_Number === "0") {
-      queueBtn = `<button class="btn btn-success" onclick="location.href='/scan_qr?machine_id=${queue.Machine_ID}'">掃碼使用</button>`;
-      // 計算剩餘可掃碼時間（Turn_Start_Time + 5 分鐘）
-      const deadline = queue.Turn_Start_Time
-        ? new Date(new Date(queue.Turn_Start_Time).getTime() + 5 * 60 * 1000)
-        : null;
-      if (deadline) {
-        const msLeft = deadline - new Date();
-        if (msLeft > 0) {
-          const mLeft = Math.floor(msLeft / 60000);
-          const sLeft = Math.floor((msLeft % 60000) / 1000);
-          alertText = `輪到您了！請在 ${mLeft}m ${sLeft}s 內掃碼，逾時扣點`;
-        } else {
-          alertText = '輪到您了！請立即掃碼使用（即將過號）';
-        }
-      } else {
-        alertText = '輪到您了！請於時間內掃碼使用，逾時將取消資格';
-      }
-    } else {
-      queueBtn = `<button class="btn btn-danger" id="cancelBtn" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>`;
-      alertText = `排隊序號： ${queue.Reservation_Number}`;
+  _queues = active;
+  // 保持目前顯示的 index（若超出範圍就回到 0）
+  if (_queueIndex >= _queues.length) _queueIndex = 0;
+  renderQueueCard(_queueIndex);
+}
+
+function renderQueueCard(idx) {
+  const containerQueue = document.getElementById('queue-container');
+  const queue = _queues[idx];
+  const total = _queues.length;
+  const WASH_MIN = 3; // 每次洗衣預估分鐘（demo 用 3 分鐘）
+
+  // 預估等待時間
+  let waitMin = 0;
+  const num = parseInt(queue.Reservation_Number);
+  if (num > 0) {
+    let remainingMs = 0;
+    if (queue.Machine_End_Time) {
+      remainingMs = Math.max(0, new Date(queue.Machine_End_Time) - new Date());
     }
+    waitMin = Math.ceil(remainingMs / 60000) + (num - 1) * WASH_MIN;
   }
 
+  // 按鈕 & 提示文字
+  let queueBtn = '';
+  let alertText = '';
+  if (num === 0) {
+    const deadline = queue.Turn_Start_Time
+      ? new Date(new Date(queue.Turn_Start_Time).getTime() + 5 * 60 * 1000)
+      : null;
+    if (deadline) {
+      const msLeft = deadline - new Date();
+      if (msLeft > 0) {
+        const mL = Math.floor(msLeft / 60000);
+        const sL = Math.floor((msLeft % 60000) / 1000);
+        alertText = `輪到您了！請在 ${mL}m ${sL}s 內掃碼，逾時扣點`;
+      } else {
+        alertText = '輪到您了！請立即掃碼（即將過號）';
+      }
+    } else {
+      alertText = '輪到您了！請掃碼使用';
+    }
+    queueBtn = `<button class="btn btn-success w-100 mt-2" onclick="location.href='/scan_qr?machine_id=${queue.Machine_ID}'">掃碼使用</button>`;
+  } else {
+    alertText = `排隊序號：${num}　預估等待 <strong>約 ${waitMin} 分鐘</strong>`;
+    queueBtn = `<button class="btn btn-danger w-100 mt-2" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>`;
+  }
+
+  // 導覽箭頭
+  const navBar = total > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <button class="btn btn-sm btn-outline-secondary px-2" onclick="changeQueueIndex(-1)">◀</button>
+      <span style="font-size:12px;color:#aaa;">${idx + 1} / ${total}　台機器在排隊</span>
+      <button class="btn btn-sm btn-outline-secondary px-2" onclick="changeQueueIndex(1)">▶</button>
+    </div>` : '';
+
   containerQueue.innerHTML = `
+    ${navBar}
     <div class="machine-header">
       <div class="machine-number">${queue.Machine_Number} 號機</div>
       <span class="machine-badge">排隊中</span>
     </div>
     <div class="machine-location">${queue.Dorm} ${queue.Floor}F - ${queue.Laundry_Room}</div>
-    <div class="time-label">${alertText}</div>
+    <div class="time-label mt-2">${alertText}</div>
     ${queueBtn}
   `;
+}
+
+function changeQueueIndex(dir) {
+  _queueIndex = (_queueIndex + dir + _queues.length) % _queues.length;
+  renderQueueCard(_queueIndex);
 }
 
 async function cancelQueue(machine_id) {
@@ -125,8 +217,10 @@ async function cancelQueue(machine_id) {
   }
 }
 
-loadUsage();
-loadQueue();
+checkLogin(() => {
+  loadUsage();
+  loadQueue();
+});
 </script>
 
 <%- include('partials/footer') %>
