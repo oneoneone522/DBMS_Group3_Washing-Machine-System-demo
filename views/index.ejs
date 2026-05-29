@@ -28,12 +28,13 @@
 
 <script src="/js/checkLogin.js"></script>
 <script>
-const just_reserved_machine_id = '<%= just_reserved_machine_id %>';
-const machine_id = '<%= machine_id %>';
+const just_reserved_machine_id = <%- JSON.stringify(just_reserved_machine_id) %>;
+const machine_id = <%- JSON.stringify(machine_id) %>;
 
 async function loadUsage() {
   if (just_reserved_machine_id) {
     alert('開始洗衣行程');
+    just_reserved_machine_id = null;
   }
   const response = await fetch('/api/current_usage');
   const usage = await response.json();
