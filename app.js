@@ -304,7 +304,7 @@ app.get('/use_machine/:machine_id', async (req, res) => {
       `SELECT in_use FROM Machine WHERE Machine_ID = ?`, [machine_id]
     );
     if (!machineRows[0] || machineRows[0].in_use !== 'idle') {
-      return res.status(400).send('此機器目前無法使用');
+      return res.status(400).render('error', { message: '此機器目前無法使用', title: '錯誤' });
     }
     // 檢查使用者是否已有進行中的洗衣行程
     const [existingUsage] = await mysqlConnectionPool.query(
@@ -312,7 +312,7 @@ app.get('/use_machine/:machine_id', async (req, res) => {
       [user_id]
     );
     if (existingUsage.length > 0) {
-      return res.status(400).send('你已有進行中的洗衣行程');
+      return res.status(400).render('error', { message: '你已有進行中的洗衣行程', title: '錯誤' });
     }
     await mysqlConnectionPool.query(
       `INSERT INTO usage_record (User_ID, Machine_ID, Queue_ID, Estimated_End_Time,Usage_Status) 
