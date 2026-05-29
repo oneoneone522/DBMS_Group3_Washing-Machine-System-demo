@@ -41,15 +41,21 @@
                 console.log("m: ", m);
                 const card = document.createElement('div');
                 let machineBtn = '';
-                if (isInUse) {
+                if (m.Machine_Status === '故障') {
+                    machineBtn = `<button disabled>暫停使用</button>`;
+                }
+                else if (isInUse) {
                     machineBtn = `<button disabled>洗衣中</button>`;
+                }
+                else if (m.in_use === 'busy' && m.Estimated_End_Time && new Date(m.Estimated_End_Time) < new Date()) {
+                    machineBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})">我要排隊</button>`;
                 }
                 else if (m.Waiting_Queue_Count == 0 && m.in_use === 'idle' && m.Machine_Status === '正常') {
                     machineBtn = `<button id="scan-btn-${m.Machine_ID}" onclick="location.href='/scan_qr?machine_id=${m.Machine_ID}'">掃碼使用</button>`
                 }
                 else {
                     machineBtn = `<button id="queue-btn-${m.Machine_ID}" onclick="joinQueue(${m.Machine_ID})">我要排隊</button>`;
-                }
+                }   
                 card.className = 'machine-card';
                 let machineStatusText = m.Machine_Status;
                 if (m.Machine_Status === '故障') { 
