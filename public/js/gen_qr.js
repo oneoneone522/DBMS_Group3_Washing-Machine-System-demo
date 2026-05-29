@@ -6,14 +6,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const machines = [
-  { id: 1, name: 'M01' },
-  { id: 2, name: 'M02' },
-  { id: 3, name: 'M03' },
-  { id: 4, name: 'M04' },
-  { id: 5, name: 'M05' },
-  { id: 6, name: 'M06' },
-];
+const machines = Array.from({ length: 42 }, (_, i) => ({
+  id: i + 1,
+  name: `M${String(i + 1).padStart(2, '0')}`,
+}));
 
 const BASE_URL = 'http://localhost:3000';
 
