@@ -124,6 +124,24 @@ async function confirmPickup(usage_id) {
 
 let _queues = [];
 let _queueIndex = 0;
+let _queueCountdownTimer = null; // 掃碼倒數計時器
+
+function startQueueCountdown(deadline) {
+  if (_queueCountdownTimer) clearInterval(_queueCountdownTimer);
+  _queueCountdownTimer = setInterval(() => {
+    const el = document.getElementById('queue-scan-countdown');
+    if (!el) { clearInterval(_queueCountdownTimer); _queueCountdownTimer = null; return; }
+    const msLeft = deadline - new Date();
+    if (msLeft <= 0) {
+      el.textContent = '輪到您了！請立即掃碼（即將過號）';
+      clearInterval(_queueCountdownTimer); _queueCountdownTimer = null;
+      return;
+    }
+    const mL = Math.floor(msLeft / 60000);
+    const sL = Math.floor((msLeft % 60000) / 1000);
+    el.textContent = `輪到您了！請在 ${mL}m ${sL}s 內掃碼，逾時扣點`;
+  }, 1000);
+}
 
 async function loadQueue() {
   const response = await fetch('/api/my_queue');
@@ -171,15 +189,20 @@ function renderQueueCard(idx) {
       if (msLeft > 0) {
         const mL = Math.floor(msLeft / 60000);
         const sL = Math.floor((msLeft % 60000) / 1000);
-        alertText = `輪到您了！請在 ${mL}m ${sL}s 內掃碼，逾時扣點`;
+        // 用 span + id，讓 startQueueCountdown 每秒更新這段文字
+        alertText = `<span id="queue-scan-countdown">輪到您了！請在 ${mL}m ${sL}s 內掃碼，逾時扣點</span>`;
+        setTimeout(() => startQueueCountdown(deadline), 0);
       } else {
         alertText = '輪到您了！請立即掃碼（即將過號）';
+        if (_queueCountdownTimer) { clearInterval(_queueCountdownTimer); _queueCountdownTimer = null; }
       }
     } else {
       alertText = '輪到您了！請掃碼使用';
     }
     queueBtn = `<button class="btn btn-success w-100 mt-2" onclick="location.href='/scan_qr?machine_id=${queue.Machine_ID}'">掃碼使用</button>`;
   } else {
+    // 切換到非輪到狀態時，清掉計時器
+    if (_queueCountdownTimer) { clearInterval(_queueCountdownTimer); _queueCountdownTimer = null; }
     alertText = `排隊序號：${num}　預估等待 <strong>約 ${waitMin} 分鐘</strong>`;
     queueBtn = `<button class="btn btn-danger w-100 mt-2" onclick="cancelQueue(${queue.Machine_ID})">取消排隊</button>`;
   }
