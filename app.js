@@ -189,13 +189,13 @@ app.get('/api/machine/floor/:floor', async (req, res) => {
       m.in_use,
       ur.Usage_Status,
       ur.Estimated_End_Time,
-      SUM(CASE WHEN qr.Reservation_Status = 'waiting' THEN 1 ELSE 0 END) AS Waiting_Queue_Count
+      (SELECT COUNT(*) FROM queue_record qr
+       WHERE qr.Machine_ID = m.Machine_ID
+         AND qr.Reservation_Status = 'waiting') AS Waiting_Queue_Count
     FROM Machine m
-    LEFT JOIN usage_record ur ON m.Machine_ID = ur.Machine_ID
-      AND ur.Usage_Status = 'in_use'
-    LEFT JOIN queue_record qr ON m.Machine_ID = qr.Machine_ID
-    WHERE m.Floor = ? AND m.Dorm = ?
-    GROUP BY m.Machine_ID, m.Machine_Number, m.Machine_Status, m.Laundry_Room, m.Floor, m.Dorm, ur.Usage_Status, ur.Estimated_End_Time;`,[floor, userDorm]
+    LEFT JOIN usage_record ur
+      ON m.Machine_ID = ur.Machine_ID AND ur.Usage_Status = 'in_use'
+    WHERE m.Floor = ? AND m.Dorm = ?`,[floor, userDorm]
   );
   return res.status(200).json(rows);
 
