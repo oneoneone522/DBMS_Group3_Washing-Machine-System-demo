@@ -842,7 +842,30 @@ app.get('/api/notifications', async (req, res) => {
       }
     }
 
-    // 3. 取衣超時判定：洗完後超過 5 分鐘未按「完成」→ 強制結束 + 扣點
+    // 3. 機台空閒但排隊第一位還是 #1 → 直接推進到 #0（讓他可以掃碼）
+    const [idleWithQueue] = await mysqlConnectionPool.query(`
+      SELECT DISTINCT qr.Machine_ID
+      FROM queue_record qr
+      JOIN Machine m ON qr.Machine_ID = m.Machine_ID
+      LEFT JOIN usage_record ur ON qr.Machine_ID = ur.Machine_ID AND ur.Usage_Status = 'in_use'
+      WHERE qr.Reservation_Status = 'waiting'
+        AND qr.Reservation_Number = 1
+        AND m.in_use = 'idle'
+        AND ur.Usage_ID IS NULL
+    `);
+    for (const machine of idleWithQueue) {
+      await mysqlConnectionPool.query(`
+        UPDATE queue_record
+        SET Reservation_Number = Reservation_Number - 1
+        WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number > 0
+      `, [machine.Machine_ID]);
+      await mysqlConnectionPool.query(`
+        UPDATE queue_record SET Turn_Start_Time = NOW()
+        WHERE Machine_ID = ? AND Reservation_Status = 'waiting' AND Reservation_Number = 0
+      `, [machine.Machine_ID]);
+    }
+
+    // 4. 取衣超時判定：洗完後超過 5 分鐘未按「完成」→ 強制結束 + 扣點
     const [pickupOverdue] = await mysqlConnectionPool.query(`
       SELECT ur.Usage_ID, ur.User_ID, ur.Machine_ID
       FROM usage_record ur
